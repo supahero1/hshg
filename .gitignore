@@ -1,0 +1,6 @@
+js/node_modules
+js/package-lock.json
+
+c/hshg_bench
+c/hshg_bench-hshg_bench.gcda
+c/hshg_bench-hshg.gcda
