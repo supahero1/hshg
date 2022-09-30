@@ -8,7 +8,7 @@ This HSHG implementation features:
 For a max of 65,535 objects on a 128x128 grid with 128 cell size, one cell will use 2 bytes and one object will take 24 bytes (includes `x`, `y`, and `r`), so in the worst case scenario, you will only need 1.6MB.
 
 ### No hidden costs[^1]
-When you insert an object, a few allocations might occur, but no further memory will be requested or shrunk after the insertion.
+When you insert an object, a few allocations might occur, but no further memory will be requested or shrank after the insertion.
 
 ### Incredible versatility
 The HSHG is suited for large areas thanks to mapping the infinite plane to a finite number of cells, but you may as well use it in setups in which objects are very dense and often clumped together in cells thanks to `O(1)` insertion, `O(1)` removal, and `hshg_optimize()`.
