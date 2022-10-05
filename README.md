@@ -42,6 +42,7 @@ The benchmark logs various timings in the console, specifically `upd` (`hshg_upd
 |    `Intel Skylake`    |  500,000   |       7       |   2048    |    256    |   41ms    |   33ms    |  19.6ms   |  16.9ms   |
 |     `Intel Xeon`      |  500,000   |       7       |   2048    |    256    |   53ms    |   48ms    |  28.7ms   |  25.2ms   |
 |    `AMD EPYC-Rome`    |  500,000   |       7       |   2048    |    256    |   38ms    |   33ms    |  22.5ms   |  18.5ms   |
+|      `i5 1135G7`      |  300,000   |       7       |   1024    |    256    |   30ms    |   26ms    |  31.1ms   |  29.1ms   |
 
 ---
 
