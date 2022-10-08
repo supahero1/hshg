@@ -37,7 +37,7 @@ The benchmark logs various timings in the console, specifically `upd` (`hshg_upd
 
 |          CPU          |  Entities  | Entity radius | Cells[^2] | Cell size | Ins 1[^3] | Ins 2[^4] | Avg 1[^5] | Avg 2[^6] |
 | --------------------- | ---------- | ------------- | --------- | --------- | --------- | --------- | --------- | --------- |
-|     `i5 9600K`[^7]    |  500,000   |       7       |   2048    |    256    |   31ms    |   24ms    |  21.1ms   |  18.3ms   |
+|     `i5 9600K`[^7]    |  500,000   |       7       |   2048    |    256    |   31ms    |   24ms    |  19.5ms   |  17.9ms   |
 |   `Intel Broadwell`   |  300,000   |       7       |   1024    |    256    |   40ms    |   30ms    |  27.9ms   |  24.0ms   |
 |    `Intel Skylake`    |  500,000   |       7       |   2048    |    256    |   41ms    |   33ms    |  19.6ms   |  16.9ms   |
 |     `Intel Xeon`      |  500,000   |       7       |   2048    |    256    |   53ms    |   48ms    |  28.7ms   |  25.2ms   |
