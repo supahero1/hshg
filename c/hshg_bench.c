@@ -35,18 +35,18 @@ void update(struct hshg* hshg, hshg_entity_t x) {
   struct ball* const ball = balls + a->ref;
 
   a->x += ball->vx;
-	if(a->x < a->r) {
-		++ball->vx;
-	} else if(a->x + a->r >= ARENA_WIDTH) {
-		--ball->vx;
-	}
+  if(a->x < a->r) {
+    ++ball->vx;
+  } else if(a->x + a->r >= ARENA_WIDTH) {
+    --ball->vx;
+  }
   
-	a->y += ball->vy;
-	if(a->y < a->r) {
-		++ball->vy;
-	} else if(a->y + a->r >= ARENA_HEIGHT) {
-		--ball->vy;
-	}
+  a->y += ball->vy;
+  if(a->y < a->r) {
+    ++ball->vy;
+  } else if(a->y + a->r >= ARENA_HEIGHT) {
+    --ball->vy;
+  }
   
   hshg_move(hshg, x);
 }

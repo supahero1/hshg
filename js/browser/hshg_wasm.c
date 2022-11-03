@@ -15,8 +15,8 @@
 #define CELLS_SIDE 128
 #define AGENT_R 7
 #define CELL_SIZE 32
-#define ARENA_WIDTH 4096
-#define ARENA_HEIGHT 4096
+#define ARENA_WIDTH (CELLS_SIDE * CELL_SIZE)
+#define ARENA_HEIGHT (CELLS_SIDE * CELL_SIZE)
 
 #define LATENCY_NUM 500
 
@@ -34,23 +34,23 @@ void update(struct hshg* hshg, hshg_entity_t x) {
   struct ball* const ball = balls + a->ref;
 
   a->x += ball->vx;
-	if(a->x < a->r) {
+  if(a->x < a->r) {
     ball->vx *= 0.9;
-		++ball->vx;
-	} else if(a->x + a->r >= ARENA_WIDTH) {
+    ++ball->vx;
+  } else if(a->x + a->r >= ARENA_WIDTH) {
     ball->vx *= 0.9;
-		--ball->vx;
-	}
+    --ball->vx;
+  }
   ball->vx *= 0.995;
   
-	a->y += ball->vy;
-	if(a->y < a->r) {
+  a->y += ball->vy;
+  if(a->y < a->r) {
     ball->vy *= 0.9;
-		++ball->vy;
-	} else if(a->y + a->r >= ARENA_HEIGHT) {
+    ++ball->vy;
+  } else if(a->y + a->r >= ARENA_HEIGHT) {
     ball->vy *= 0.9;
-		--ball->vy;
-	}
+    --ball->vy;
+  }
   ball->vy *= 0.995;
 
   hshg_move(hshg, x);

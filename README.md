@@ -17,15 +17,25 @@ Not only that, but this is a **hierarchical** grid, so you may insert any sized 
 
 ## Codebase
 
-There's no `cmake` or `Makefile` files to build this project as a library. It's probably best if you simply include `hshg.c` and `hshg.h` in your project and build them there. However, you can build and run the test suite `hshg_test.c` with `./run.sh` and the benchmark `hshg_bench.c` with `./bench.sh`.
+There's no `cmake` or `Makefile` files to build this project as a library. It's probably best if you simply include `hshg.c` and `hshg.h` in your project and build them there. However, you can build and run the benchmark `hshg_bench.c` with `./run.sh`.
 
 If you do decide to use this project, you can read about how to use the underlying C functions in `usage.md`.
 
 ## JavaScript
 
+### Browser
+
 You can preview the HSHG running live with the help of [emscripten](https://emscripten.org/).
 
-If you are satisfied with the precompiled WASM file under the `js` directory, go ahead and simply run `cd js; npm i && ./run.sh`. Otherwise, you can do `cd js; npm i && ./build.sh && ./run.sh`.
+Do `cd js/browser; npm i` to install required packages.
+
+If you are satisfied with the precompiled WASM file under the `js/browser` directory, go ahead and simply run `./run.sh`. Otherwise, you will need to manually install emscripten and then do `./build.sh && ./run.sh`.
+
+The WASM binary runs about twice slower than the C equivalents (look benchmark table below).
+
+### Node.js
+
+`cd js/node; node-gyp configure && node-gyp build`
 
 ## C Benchmarks
 
@@ -34,6 +44,8 @@ Only not overclocked CPUs, one core, with `glibc`. See `hshg_bench.c` to see the
 In a nutshell, the benchmark runs a simulation consisting of circles. Initially, they are moving in a random direction and are spaced out randomly. They collide with each other in real time.
 
 The benchmark logs various timings in the console, specifically `upd` (`hshg_update()`), `opt` (`hshg_optimize()`), and `col` (`hshg_collide()`). All of that is summed in `all`, and that is what is shown below.
+
+The first part of the benchmark is a bootstrap into the second part, which uses data collected from the first one to optimise the binary further. In the table below, the first, unoptimized benchmark's results, are said to be the `1` (first) result, and the optimized run is the `2` (second) result.
 
 |          CPU          |  Entities  | Entity radius | Cells[^2] | Cell size | Ins 1[^3] | Ins 2[^4] | Avg 1[^5] | Avg 2[^6] |
 | --------------------- | ---------- | ------------- | --------- | --------- | --------- | --------- | --------- | --------- |

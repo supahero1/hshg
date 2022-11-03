@@ -6,13 +6,13 @@ This section does not document API functions, however you should read this befor
 
 ### Grids
 
-A Hierarchical Spatial Hash Grid, as the name suggests, keeps track of multiple grids that are ordered in a hierarchy, from the "tightest" grid (the most number of cells, the smallest cells) to the "loosest" one (the least number of cells, the biggest cells). In this specific implementation of a HSHG, all grids must have a cell size that's a power of 2, as well as a number of cells on one side being a power of 2. Thus, every grid is a square, with square cells, and subsequent loose grids are created by taking the previous loosest grid, dividing its number of cells on one side by a power of 2 and multiplying its cell size by the same power of 2. The new grid is then of the same size as the old one, however it has fewer cells, with the cells being bigger. The division factor can be manipulated via `hshg.cell_div_log`, with the default value being `1`, corresponding to a division factor of `2`. If it were to have a value of `2`, the division factor would be `4`.
+A Hierarchical Spatial Hash Grid, as the name suggests, keeps track of multiple grids that are ordered in a hierarchy, from the "tightest" grid (the most number of cells, the smallest cells) to the "loosest" one (the least number of cells, the biggest cells). In this specific implementation of a HSHG, all grids must have a cell size that's a power of 2, as well as a number of cells on one side being a power of 2. Thus, every grid is a square, with square cells, and subsequent loose grids are created by taking the previous loosest grid, dividing its number of cells on one side by a power of 2 and multiplying its cell size by the same power of 2. The new grid is then of the same size as the old one, however it has fewer cells, with the cells being bigger. The division factor can be manipulated via `hshg.cell_div_log`, with the default value being `1`, corresponding to a division factor of `2`. If it were to have a value of `2`, the division factor would be `4`, and so on (a `2 ** n` relation).
 
 You can also resize entities in the update function (`hshg.update`, called in `hshg_update()` for every entity) via `hshg_resize()`. The function does not accept failure, so it will always expect the new entity, no matter if larger or smaller, to fit in the existing grids. If the entity got bigger and there isn't a grid that can fit it, the program will abort. If you want to use this functionality, you must call `hshg_prealloc(&structure, radius_of_biggest_entity)` after calling `hshg_init()` and before calling `hshg_resize()`. That function will generate enough grids to fit an entity of size `radius_of_biggest_entity * 2`. Subsequent insertions will also benefit from this, because they won't have to create more grids on the fly as new entities come in.
 
 ### Entities
 
-A new entity is inserted to a grid that fits the entity entirely in one cell, and so that the previous grid's cell size would be too small for the entity (to not insert entities to oversized cells). Due to this, only one copy of the entity is needed over its whole lifetime, and it only occupies one cell in one grid, unlike other structures like a non-hierarchical grid structure, or a QuadTree, in which case you need to be varied of duplicates in leaf nodes and so. When an entity that's bigger than the top grid's cell size is inserted, the underlying code in response allocates more grids, as many as necessary to fit the new entity, with the method described in the paragraph above.
+A new entity is inserted to a grid that fits the entity entirely in one cell, and so that the previous grid's cell size would be too small for the entity (to not insert entities to oversized cells). Due to this, only one copy of the entity is needed over its whole lifetime, and it only occupies one cell in one grid, unlike other structures like a non-hierarchical grid structure, or a QuadTree, in which case you need to be varied of duplicates in leaf nodes and so. When an entity that's bigger than the top grid's cell size is inserted, the underlying code in response allocates more grids, as many as necessary to fit the new entity, with the method described in the paragraphs above.
 
 All entities are stored in one big array that's dynamically resized if needed. By default, if it needs resizing in order to fit a new entity, the underlying code will double the current array size. This might be a pretty universal solution, however it might not be feasible for some use cases. If you need precise control of the array's size, consider using `hshg_set_size()` before using `hshg_insert()`. Additionally, if entities are removed, the array is not shrank to a smaller size. If you need to do that, you can use `hshg_set_size(&structure, structure.entities_used)`, which will eliminate most of the unused space in the array.
 
@@ -47,7 +47,7 @@ This implementation of a HSHG maps the infinite plane to a finite number of cell
   -1                0                1
 ```
 
-This will result in performance slightly worse than if the HSHG was 4 times smaller in size (one of the cells instead of all 4), because ALL of your arena cells will be mapped to the same exact HSHG cell. If you don't know how this implementation of HSHGs folds the XOY plane to grids, you should just stick to **one** of the four XOY quadrants.
+This will result in performance slightly worse than if the HSHG was 4 times smaller in size (one of the cells instead of all 4), because ALL of your arena cells will be mapped to the same exact HSHG cell. If you don't know how this implementation of HSHGs folds the XOY plane to grids, you should just stick to **one** of the four XOY quadrants (as in, maybe make all positions positive instead of having any negatives)
 
 ### Tuning
 
@@ -149,19 +149,19 @@ void update(struct hshg* hshg, hshg_entity_t id) {
 }
 ```
 
-You don't need to call `hshg_move()` every single time you update the position - you may as well call it once at the end of the update callback.
+You don't need to call `hshg_move()` every single time you change `x` or `y` - you may as well call it once at the end of the update callback.
 
 If you are updating the entity's radius too (`entity->r`), you must also call `hshg_resize(hshg, id)`. It works pretty much like `hshg_move()`.
 
-If you move or update an entity's radius without calling the respective functions at the end of the update callback, collision will not be accurate.
+If you move or update an entity's radius without calling the respective functions at the end of the update callback, collision will not be accurate, query will not return the right entities, stuff will break, and the world is going to end.
 
 To call `hshg_resize()`, you must call `hshg_prealloc()` first, see above.
 
-If you call `hshg_insert()` from `hshg.update`, the newly inserted entity **might or might not** be updated during the same `hshg_update()` function call. If you need to eliminate this possibility, keep track of a tick number or so, to make sure you don't update entities that were created in the same tick.
+If you call `hshg_insert()` from `hshg.update`, the newly inserted entity **might or might not** be updated during the same `hshg_update()` function call. If you need to eliminate this possibility, keep track of a tick number or so, to make sure you don't update entities that were created in the same tick, and then spare one bit for knowing whether or not an entity was just created or not.
 
 `hshg_update(&hshg)` goes through all entities and calls `hshg.update` on them.
 
-`hshg_optimize(&hshg)` reallocates all entities and changes the order they are in so that they appear in the most cache friendly way possible. This process insanely speeds up the next call to `hshg_collide(&hshg)`. It is most effective when entities in the HSHG are clumped. Moreover, for a split second, the memory usage will nearly double, so if you can't have that, don't use the function.
+`hshg_optimize(&hshg)` reallocates all entities and changes the order they are in so that they appear in the most cache friendly way possible. This process insanely speeds up the next call to `hshg_collide(&hshg)` and a little bit `hshg_query(&hshg, ...)`. It is most effective when entities in the HSHG are clumped. Moreover, for the duration of the function, the memory usage will nearly double, so if you can't have that, don't use the function.
 
 ```c
 int err = hshg_optimize(&hshg);
@@ -217,8 +217,12 @@ Summing up all of the above, a normal update tick would look like so:
 
 ```c
 hshg_update(&hshg);
-assert(!hshg_optimize(&hshg));
+assert(!hshg_optimize(&hshg)); /* no "no mem" */
+/* hshg_query(&hshg, ...); (can be either here or below) */
 hshg_collide(&hshg);
+/* hshg_query(&hshg, ...); (can be either here or above) */
 ```
 
-For a complete example, see `c/hshg_bench.c` and `js/hshg_wasm.c`.
+Do not mix updates, collisions, optimizations, and queries. Calling one from the other's callback won't end well in the majority of cases.
+
+For a complete example, see `c/hshg_bench.c` and `js/browser/hshg_wasm.c`.
