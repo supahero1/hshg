@@ -30,8 +30,7 @@ struct ball {
 
 struct ball balls[AGENTS_NUM];
 
-void update(struct hshg* hshg, hshg_entity_t x) {
-  struct hshg_entity* const a = hshg->entities + x;
+void update(struct hshg* hshg, struct hshg_entity* a) {
   struct ball* const ball = balls + a->ref;
 
   a->x += ball->vx;
@@ -48,7 +47,7 @@ void update(struct hshg* hshg, hshg_entity_t x) {
     --ball->vy;
   }
   
-  hshg_move(hshg, x);
+  hshg_move(hshg);
 }
 
 uint64_t maybe_collisions = 0;
@@ -116,12 +115,7 @@ int main() {
 #else
     float min_r = AGENT_R;
 #endif
-    hshg_insert(&hshg, &((struct hshg_entity) {
-      .x = rands[i * 4 + 0] * ARENA_WIDTH,
-      .y = rands[i * 4 + 1] * ARENA_HEIGHT,
-      .r = min_r,
-      .ref = i
-    }));
+    hshg_insert(&hshg, rands[i * 4 + 0] * ARENA_WIDTH, rands[i * 4 + 1] * ARENA_HEIGHT, min_r, i);
     balls[i].vx = rands[i * 4 + 2] * 8 - 4;
     balls[i].vy = rands[i * 4 + 3] * 8 - 4;
   }
@@ -139,7 +133,7 @@ int main() {
     const uint64_t upd_time = get_time();
     hshg_update(&hshg);
     const uint64_t opt_time = get_time();
-    assert(!hshg_optimize(&hshg));
+    //assert(!hshg_optimize(&hshg));
     const uint64_t col_time = get_time();
     hshg_collide(&hshg);
     const uint64_t end_time = get_time();

@@ -35,7 +35,7 @@ The WASM binary runs about twice slower than the C equivalents (look benchmark t
 
 ### Node.js
 
-`cd js/node; node-gyp configure && node-gyp build`
+`cd js/node; npm run install`
 
 ## C Benchmarks
 

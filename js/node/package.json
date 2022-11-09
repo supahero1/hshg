@@ -1,0 +1,24 @@
+{
+  "name": "hshg",
+  "version": "1.0.0",
+  "description": "Hierarchical Spatial Hash Grid written in C",
+  "main": "hshg.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "install": "node-gyp rebuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/supahero1/hshg.git"
+  },
+  "keywords": [
+    "hshg"
+  ],
+  "author": "supahero1",
+  "license": "Apache-2.0",
+  "gypfile": true,
+  "bugs": {
+    "url": "https://github.com/supahero1/hshg/issues"
+  },
+  "homepage": "https://github.com/supahero1/hshg#readme"
+}

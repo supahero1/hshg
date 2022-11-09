@@ -67,20 +67,21 @@ struct hshg {
   struct hshg_entity* entities;
   struct hshg_grid* grids;
   
-  void (*update)(struct hshg*, hshg_entity_t);
+  void (*update)(struct hshg*, struct hshg_entity*);
   void (*collide)(const struct hshg*, const struct hshg_entity*, const struct hshg_entity*);
   void (*query)(const struct hshg*, const struct hshg_entity*);
   
   uint8_t cell_div_log;
   uint8_t cell_log;
   uint8_t grids_len;
+  uint8_t calling;
   
   hshg_cell_sq_t grid_size;
-  hshg_pos_t inverse_grid_size;
 
   hshg_entity_t free_entity;
   hshg_entity_t entities_used;
   hshg_entity_t entities_size;
+  hshg_entity_t entity_id;
 };
 
 extern int  hshg_init(struct hshg* const, const hshg_cell_t, const uint32_t);
@@ -91,17 +92,17 @@ extern int  hshg_set_size(struct hshg* const, const hshg_entity_t);
 
 extern int  hshg_prealloc(struct hshg* const, const hshg_pos_t);
 
-extern int  hshg_insert(struct hshg* const, const struct hshg_entity* const);
+extern int  hshg_insert(struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_entity_t);
 
-extern void hshg_remove(struct hshg* const, const hshg_entity_t);
+extern void hshg_remove(struct hshg* const);
 
-extern void hshg_move(const struct hshg* const, const hshg_entity_t);
+extern void hshg_move(const struct hshg* const);
 
-extern void hshg_resize(struct hshg* const, const hshg_entity_t);
+extern void hshg_resize(const struct hshg* const);
 
 extern void hshg_update(struct hshg* const);
 
-extern void hshg_collide(const struct hshg* const);
+extern void hshg_collide(struct hshg* const);
 
 extern int  hshg_optimize(struct hshg* const);
 
