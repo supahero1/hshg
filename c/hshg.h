@@ -63,13 +63,18 @@ struct hshg_grid {
   hshg_pos_t inverse_cell_size;
 };
 
+struct hshg;
+typedef void (*hshg_update_t)(struct hshg*, struct hshg_entity*);
+typedef void (*hshg_collide_t)(const struct hshg*, const struct hshg_entity*, const struct hshg_entity*);
+typedef void (*hshg_query_t)(const struct hshg*, const struct hshg_entity*);
+
 struct hshg {
   struct hshg_entity* entities;
   struct hshg_grid* grids;
   
-  void (*update)(struct hshg*, struct hshg_entity*);
-  void (*collide)(const struct hshg*, const struct hshg_entity*, const struct hshg_entity*);
-  void (*query)(const struct hshg*, const struct hshg_entity*);
+  hshg_update_t update;
+  hshg_collide_t collide;
+  hshg_query_t query;
   
   uint8_t cell_div_log;
   uint8_t cell_log;

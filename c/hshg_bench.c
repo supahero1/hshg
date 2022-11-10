@@ -9,17 +9,17 @@
 #include <inttypes.h>
 #include <stdatomic.h>
 
-#define AGENTS_NUM 500000
+#define AGENTS_NUM 820000
 
 #define CELLS_SIDE 2048
 #define AGENT_R 7
-#define CELL_SIZE 256
+#define CELL_SIZE 512
 #define ARENA_WIDTH (CELLS_SIDE * CELL_SIZE)
 #define ARENA_HEIGHT (CELLS_SIDE * CELL_SIZE)
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 300
+#define LATENCY_NUM 400
 
 #define SINGLE_LAYER 1
 
@@ -28,7 +28,7 @@ struct ball {
   float vy;
 };
 
-struct ball balls[AGENTS_NUM];
+struct ball* balls = NULL;
 
 void update(struct hshg* hshg, struct hshg_entity* a) {
   struct ball* const ball = balls + a->ref;
@@ -48,6 +48,27 @@ void update(struct hshg* hshg, struct hshg_entity* a) {
   }
   
   hshg_move(hshg);
+}
+
+uint32_t opt_idx = 0;
+struct ball* new_balls = NULL;
+
+void balls_opt(struct hshg* hshg, struct hshg_entity* a) {
+  new_balls[opt_idx] = balls[a->ref];
+  a->ref = opt_idx;
+  ++opt_idx;
+}
+
+void optimize_array_of_balls(struct hshg* hshg) {
+  new_balls = calloc(AGENTS_NUM, sizeof(*new_balls));
+  assert(new_balls);
+  opt_idx = 0;
+  hshg_update_t old = hshg->update;
+  hshg->update = balls_opt;
+  hshg_update(hshg);
+  free(balls);
+  balls = new_balls;
+  hshg->update = old;
 }
 
 uint64_t maybe_collisions = 0;
@@ -89,12 +110,18 @@ float randf(void) {
 }
 
 int main() {
-  srand(get_time());
+  srand(
+    get_time()
+    // 2137
+  );
   float* rands = malloc(sizeof(float) * AGENTS_NUM * 4);
   assert(rands);
   for(uint32_t i = 0; i < AGENTS_NUM * 4; ++i) {
     rands[i] = randf();
   }
+
+  balls = calloc(AGENTS_NUM, sizeof(*balls));
+  assert(balls);
 
   struct hshg hshg = {0};
   hshg.update = update;
@@ -133,7 +160,10 @@ int main() {
     const uint64_t upd_time = get_time();
     hshg_update(&hshg);
     const uint64_t opt_time = get_time();
-    //assert(!hshg_optimize(&hshg));
+    if(i % 64 == 0) {
+      assert(!hshg_optimize(&hshg));
+      optimize_array_of_balls(&hshg);
+    }
     const uint64_t col_time = get_time();
     hshg_collide(&hshg);
     const uint64_t end_time = get_time();
