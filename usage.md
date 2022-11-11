@@ -47,7 +47,7 @@ This implementation of a HSHG maps the infinite plane to a finite number of cell
   -1                0                1
 ```
 
-This will result in performance slightly worse than if the HSHG was 4 times smaller in size (one of the cells instead of all 4), because ALL of your arena cells will be mapped to the same exact HSHG cell. If you don't know how this implementation of HSHGs folds the XOY plane to grids, you should just stick to **one** of the four XOY quadrants (as in, maybe make all positions positive instead of having any negatives)
+This will result in performance slightly worse than if the HSHG was 4 times smaller in size (one of the cells instead of all 4), because ALL of your arena cells will be mapped to the same exact HSHG cell. If you don't know how this implementation of HSHGs folds the XOY plane to grids, you should just stick to **one** of the four XOY quadrants (as in, maybe make all positions positive instead of having any negatives).
 
 ### Tuning
 
@@ -62,9 +62,9 @@ Always begin by zeroing the structure. The only necessary members to set are `hs
 ```c
 struct hshg hshg = {0};
 
-hshg.update = (void (*)(struct hshg*, hshg_entity_t id));
-hshg.collide = (void (*)(const struct hshg*, const struct hshg_entity* ent_a, const struct hshg_entity* ent_b));
-hshg.query = (void (*)(const struct hshg*, const struct hshg_entity* ent));
+hshg.update = (hshg_update_t) some_update_func;
+hshg.collide = (hshg_collide_t) some_collide_func;
+hshg.query = (hshg_query_t) some_query_func;
 
 /* BOTH OF THE BELOW MUST BE POWERS OF 2! */
 
@@ -73,9 +73,9 @@ hshg.query = (void (*)(const struct hshg*, const struct hshg_entity* ent));
 Square that, and you get the total number of cells. */
 const hshg_cell_t cells_on_axis = 64;
 /* Side length of one cell in the first, "tightest"
-grid. You will want to make this be maybe 2 or 4
-times bigger than the smallest entity's size. */
-const uint32_t cell_size = 32;
+grid. Generally, you will want to make this be as
+close to the smallest entity's radius as possible. */
+const uint32_t cell_size = 16;
 
 int err = hshg_init(&hshg, cells_on_axis, cell_size);
 if(err) {
@@ -90,68 +90,89 @@ All entities have an AABB which is a square. Once collision is detected, it's up
 Insertion:
 
 ```c
-struct my_obj {
-  hshg_pos_t vx;
-  hshg_pos_t vy;
-  int remove;
-};
-
-struct my_obj objs[100] = {0};
-
-int err = hshg_insert(&hshg, &((struct hshg_entity) {
-  .x = 0.12,
-  .y = 3.45,
-  .r = 6.78,
-  .ref = 9 /* An index for the "objs" array */
-}));
+const hshg_pos_t x = 0.12;
+const hshg_pos_t y = 3.45;
+const hshg_pos_t r = 6.78;
+const hshg_entity_t ref = 0; /* Not needed for now */
+int err = hshg_insert(&hshg, x, y, r, ref);
 if(err) {
   /* Out of memory */
 }
 ```
 
-No identifier for the entity is returned from `hshg_insert()`, but one is required for removing entities from the HSHG via `hshg_remove()`. In other words, you may only remove entities from the update callback:
+No identifier for the entity is returned from `hshg_insert()`, but one is required for removing entities from the HSHG via `hshg_remove()`. In other words, you may only remove entities from the update callback. However, you may ask how you are supposed to do that, without attaching any metadata to the entity when it's inserted.
+
+That's what the `ref` variable mentioned above achieves - it lets you attach a piece of data (generally an index to a larger array containing lots of data that an entity needs) to the entities you insert. To begin with, you can create an array of data per entity you will want to use:
 
 ```c
-void update(struct hshg* hshg, hshg_entity_t id) {
-  struct hshg_entity* entity = hshg->entities + id;
-  struct my_obj* obj = objs + entity->ref;
+struct my_entity {
+  hshg_pos_t vx;
+  hshg_pos_t vy;
+  int remove_me;
+};
 
-  if(obj.remove) {
-    hshg_remove(hshg, id);
+#define ABC /* some number */
+
+struct my_entity entities[ABC];
+```
+
+Now, really, you can do a load of stuff with this to suit it to your needs, like an `hshg_insert()` wrapper that also populates the chosen `entities[]` spot, and a method for actually choosing a spot in the array. I'd like to keep it simple, so I will go for a rather dumb solution:
+
+```c
+hshg_entity_t entities_len = 0;
+
+int my_insert(struct hshg_entity* ent, struct my_entity* my_ent) {
+  entities[entities_len] = *my_ent;
+  const int ret = hshg_insert(&hshg, ent->x, ent->y, ent->r, entities_len);
+  ++entities_len;
+  return ret;
+}
+```
+
+Now, from any callback that involves `struct hshg_entity`, you will also be given the number kept in `ref`, that will then allow you to access that specific spot in the array `entities`. Then, you can implement the process of deleting an entity like so:
+
+
+```c
+void update(struct hshg* hshg, struct hshg_entity* entity) {
+  struct my_entity* my_ent = entities + entity->ref;
+
+  if(my_ent->remove_me) {
+    hshg_remove(hshg);
     return;
   }
 
-  entity->x += obj->vx;
-  entity->y += obj->vy;
+  entity->x += my_ent->vx;
+  entity->y += my_ent->vy;
 }
 
 struct hshg hshg = {0};
 hshg.update = update;
-hshg_init(&hshg, 1, 1);
+assert(!hshg_init(&hshg, 1, 1));
+
+/* sometime, set entities[idx].remove_me to 1 */
 ```
 
-The update callback above actually won't do the trick, because it's updating the entity's position without asking the HSHG to update it too. To fix that, call `hshg_move()`:
+The update callback above can delete entities, and seems to update their position, however the underlying code doesn't actually know the position was updated after you return from the callback. To fix that, call `hshg_move()`, generally at the end of the callback:
 
 ```c
-void update(struct hshg* hshg, hshg_entity_t id) {
-  struct hshg_entity* entity = hshg->entities + id;
-  struct my_obj* obj = objs + entity->ref;
+void update(struct hshg* hshg, struct hshg_entity* entity) {
+  struct my_entity* my_ent = entities + entity->ref;
 
-  if(obj.remove) {
-    hshg_remove(hshg, id);
+  if(my_ent->remove_me) {
+    hshg_remove(hshg);
     return;
   }
 
-  entity->x += obj->vx;
-  entity->y += obj->vy;
+  entity->x += my_ent->vx;
+  entity->y += my_ent->vy;
 
-  hshg_move(hshg, id); /* !!! */
+  hshg_move(hshg); /* !!! */
 }
 ```
 
 You don't need to call `hshg_move()` every single time you change `x` or `y` - you may as well call it once at the end of the update callback.
 
-If you are updating the entity's radius too (`entity->r`), you must also call `hshg_resize(hshg, id)`. It works pretty much like `hshg_move()`.
+If you are updating the entity's radius too (`entity->r`), you must also call `hshg_resize(hshg)`. It works pretty much like `hshg_move()`. If you need to call both, it does not matter in what order you do so.
 
 If you move or update an entity's radius without calling the respective functions at the end of the update callback, collision will not be accurate, query will not return the right entities, stuff will break, and the world is going to end.
 
@@ -159,9 +180,57 @@ To call `hshg_resize()`, you must call `hshg_prealloc()` first, see above.
 
 If you call `hshg_insert()` from `hshg.update`, the newly inserted entity **might or might not** be updated during the same `hshg_update()` function call. If you need to eliminate this possibility, keep track of a tick number or so, to make sure you don't update entities that were created in the same tick, and then spare one bit for knowing whether or not an entity was just created or not.
 
-`hshg_update(&hshg)` goes through all entities and calls `hshg.update` on them.
+Note that `hshg_remove()` may **only** be called from `hshg.update()`. Same goes for `hshg_move()` and `hshg_resize()`. These functions do not accept any arguments on purpose, because they remove the currently examined entity that `hshg.update()` is called on.
 
-`hshg_optimize(&hshg)` reallocates all entities and changes the order they are in so that they appear in the most cache friendly way possible. This process insanely speeds up the next call to `hshg_collide(&hshg)` and a little bit `hshg_query(&hshg, ...)`. It is most effective when entities in the HSHG are clumped. Moreover, for the duration of the function, the memory usage will nearly double, so if you can't have that, don't use the function.
+`hshg_update(&hshg)` goes through all entities and calls `hshg.update` on them. You may not call this function recursively from its callback, nor can you call `hshg_optimize()` and `hshg_collide()`. You are allowed to call `hshg_query()`, however note that you must do so **after** you update positions of entities, which generally will require you to do two `hshg_update()`'s:
+
+```c
+void update(struct hshg* hshg, struct hshg_entity* entity) {
+  struct my_entity* my_ent = entities + entity->ref;
+
+  if(my_ent->remove_me) {
+    hshg_remove(hshg);
+    return;
+  }
+
+  entity->x += my_ent->vx;
+  entity->y += my_ent->vy;
+
+  hshg_move(hshg);
+}
+
+const struct hshg_entity* queried_entities[ABC];
+hshg_entity_t query_len = 0;
+
+void query(const struct hshg* hshg, const struct hshg_entity* entity) {
+  queried_entities[query_len++] = entity;
+}
+
+void update_with_query(struct hshg* hshg, struct hshg_entity* entity) {
+  struct my_entity* my_ent = entities + entity->ref;
+  
+  query_len = 0;
+  hshg_query(hshg, minx, miny, maxx, maxy);
+
+  /* do something with the query data stored in queried_entities[] */
+}
+
+struct hshg hshg = {0};
+hshg.query = query;
+assert(!hshg_init(&hshg, 1, 1));
+
+void tick(void) {
+  hshg.update = update;
+  hshg_update(&hshg);
+  hshg.update = update_with_query;
+  hshg_update(&hshg);
+  /* maybe also collide, etc */
+}
+```
+
+This sequentiality is required for most projects that want accurate *things*. If you mix updating an entity with viewing an entity's state, all weird sorts of things can happen. Mostly it will be harmless, perhaps minimal visual bugs on the edges of the screen due to incorrect data fetched by `hshg_query()`, but if you don't want that minimal incorrectness (and you probably don't), then separate the concept of modifying `struct hshg_entity` from viewing it. For instance, **NEVER** update an entity in `hshg_collide()`'s callback. Because the next entity the function goes to will see something else than what the previous entity saw.
+
+`hshg_optimize(&hshg)` reallocates all entities and changes the order they are in so that they appear in the most cache friendly way possible. This process insanely speeds up the next call to `hshg_collide(&hshg)` and a little bit `hshg_query(&hshg, ...)`. It is most effective when entities in the HSHG are clumped. Moreover, for the duration of the function, the memory usage will nearly double, so if you can't have that, don't use the function. It generally helps most when there are really a lot of entities, counting in hundreds of thousands.
 
 ```c
 int err = hshg_optimize(&hshg);
@@ -170,7 +239,9 @@ if(err) {
 }
 ```
 
-`hshg_collide(&hshg)` goes through all cells on all grids and detects loose collision between square AABBs of the entities. It is your responsibility to detect the collision with more detail in the `hshg.collide` callback, if necessary. A sample callback for simple circle collision might look like so:
+Don't ever call this function *every single tick*. Instead, have a tick counting variable, say, `int tick = 0`, and call `hshg_optimize()` every 64 ticks or so, with `if(tick % 64 == 0) do_it()`. This is one of the places you will need to experiment with for a few minutes, because while 64 is a good "starting" value, your environment might require a different one. Check what works best for you via benchmarking. Generally, the faster the entities in your simulation move, the lower the number above will need to be to be effective.
+
+`hshg_collide(&hshg)` goes through all entities and detects loose collision between square AABBs of the entities. It is your responsibility to detect the collision with more detail in the `hshg.collide` callback, if necessary. A sample callback for simple circle collision might look like so:
 
 ```c
 void collide(const struct hshg* hshg, const struct hshg_entity* a, const struct hshg_entity* b) {
@@ -192,11 +263,13 @@ void collide(const struct hshg* hshg, const struct hshg_entity* a, const struct 
 hshg.collide = collide;
 ```
 
+From this callback, you may not call `hshg_update()` or `hshg_optimize()`.
+
 `hshg_query(&hshg, min_x, min_y, max_x, max_y)` calls `hshg.query` on every entity that belongs to the rectangular area from `(min_x, min_y)` to `(max_x, max_y)`. It is important that the second and third arguments are smaller or equal to fourth and fifth.
 
 ```c
 void query(const struct hshg* hshg, const struct hshg_entity* a) {
-  circle(a->x, a->y, a->r);
+  draw_a_circle(a->x, a->y, a->r);
 }
 
 hshg.query = query;
@@ -213,16 +286,19 @@ const uint32_t total_size = cells * cell_size;
 hshg_query(&hshg, 0, 0, total_size, total_size);
 ```
 
+You may not call any of `hshg_update()`, `hshg_optimize()`, or `hshg_collide()` from this callback.
+
 Summing up all of the above, a normal update tick would look like so:
 
 ```c
 hshg_update(&hshg);
-assert(!hshg_optimize(&hshg)); /* no "no mem" */
+if(tick_counter % 64 == 0) {
+  assert(!hshg_optimize(&hshg)); /* no "no mem" */
+}
 /* hshg_query(&hshg, ...); (can be either here or below) */
 hshg_collide(&hshg);
 /* hshg_query(&hshg, ...); (can be either here or above) */
+++tick_counter;
 ```
-
-Do not mix updates, collisions, optimizations, and queries. Calling one from the other's callback won't end well in the majority of cases.
 
 For a complete example, see `c/hshg_bench.c` and `js/browser/hshg_wasm.c`.

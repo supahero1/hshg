@@ -111,6 +111,6 @@ extern void hshg_collide(struct hshg* const);
 
 extern int  hshg_optimize(struct hshg* const);
 
-extern void hshg_query(const struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
+extern void hshg_query(struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
 
 #endif /* _hshg_h_ */

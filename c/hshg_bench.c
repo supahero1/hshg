@@ -9,19 +9,20 @@
 #include <inttypes.h>
 #include <stdatomic.h>
 
-#define AGENTS_NUM 820000
+#define AGENTS_NUM 500000
 
 #define CELLS_SIDE 2048
 #define AGENT_R 7
-#define CELL_SIZE 512
+#define CELL_SIZE 16
 #define ARENA_WIDTH (CELLS_SIDE * CELL_SIZE)
 #define ARENA_HEIGHT (CELLS_SIDE * CELL_SIZE)
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 400
+#define LATENCY_NUM 2000
 
 #define SINGLE_LAYER 1
+
 
 struct ball {
   float vx;
@@ -29,46 +30,52 @@ struct ball {
 };
 
 struct ball* balls = NULL;
+uint32_t ball_idx = 0;
+struct ball* balls_new = NULL;
+
+void balls_update(struct hshg* hshg, struct hshg_entity* a) {
+  balls_new[ball_idx] = balls[a->ref];
+  a->ref = ball_idx;
+  ++ball_idx;
+}
+
+void balls_optimize(struct hshg* hshg) {
+  balls_new = calloc(AGENTS_NUM, sizeof(*balls_new));
+  assert(balls_new);
+  ball_idx = 0;
+  hshg_update_t old = hshg->update;
+  hshg->update = balls_update;
+  hshg_update(hshg);
+  free(balls);
+  balls = balls_new;
+  hshg->update = old;
+}
+
 
 void update(struct hshg* hshg, struct hshg_entity* a) {
   struct ball* const ball = balls + a->ref;
 
   a->x += ball->vx;
   if(a->x < a->r) {
+    ball->vx *= 0.9;
     ++ball->vx;
   } else if(a->x + a->r >= ARENA_WIDTH) {
+    ball->vx *= 0.9;
     --ball->vx;
   }
+  ball->vx *= 0.997;
   
   a->y += ball->vy;
   if(a->y < a->r) {
+    ball->vy *= 0.9;
     ++ball->vy;
   } else if(a->y + a->r >= ARENA_HEIGHT) {
+    ball->vy *= 0.9;
     --ball->vy;
   }
+  ball->vy *= 0.997;
   
   hshg_move(hshg);
-}
-
-uint32_t opt_idx = 0;
-struct ball* new_balls = NULL;
-
-void balls_opt(struct hshg* hshg, struct hshg_entity* a) {
-  new_balls[opt_idx] = balls[a->ref];
-  a->ref = opt_idx;
-  ++opt_idx;
-}
-
-void optimize_array_of_balls(struct hshg* hshg) {
-  new_balls = calloc(AGENTS_NUM, sizeof(*new_balls));
-  assert(new_balls);
-  opt_idx = 0;
-  hshg_update_t old = hshg->update;
-  hshg->update = balls_opt;
-  hshg_update(hshg);
-  free(balls);
-  balls = new_balls;
-  hshg->update = old;
 }
 
 uint64_t maybe_collisions = 0;
@@ -92,6 +99,7 @@ void collide(const struct hshg* hshg, const struct hshg_entity* a, const struct 
   }
 }
 
+
 uint64_t get_time(void) {
   struct timespec ts;
   (void) timespec_get(&ts, TIME_UTC);
@@ -109,27 +117,17 @@ float randf(void) {
   return (double) rand() / (double) RAND_MAX;
 }
 
+
 int main() {
-  srand(
-    get_time()
-    // 2137
-  );
-  float* rands = malloc(sizeof(float) * AGENTS_NUM * 4);
-  assert(rands);
-  for(uint32_t i = 0; i < AGENTS_NUM * 4; ++i) {
-    rands[i] = randf();
-  }
+  srand(get_time());
+  signal(SIGINT, sighandler);
 
   balls = calloc(AGENTS_NUM, sizeof(*balls));
   assert(balls);
 
-  struct hshg hshg = {0};
-  hshg.update = update;
-  hshg.collide = collide;
-  hshg.entities_size = AGENTS_NUM + 1;
-  assert(!hshg_init(&hshg, CELLS_SIDE, CELL_SIZE));
+  float* init_data = malloc(sizeof(float) * AGENTS_NUM * 3);
+  assert(init_data);
 
-  const uint64_t ins_time = get_time();
   for(hshg_entity_t i = 0; i < AGENTS_NUM; ++i) {
 #if SINGLE_LAYER == 0
     float min_r = 999999.0f;
@@ -139,18 +137,32 @@ int main() {
         min_r = new;
       }
     }
+    if(min_r > 384.0f) {
+      min_r = 384.0f;
+    }
 #else
     float min_r = AGENT_R;
 #endif
-    hshg_insert(&hshg, rands[i * 4 + 0] * ARENA_WIDTH, rands[i * 4 + 1] * ARENA_HEIGHT, min_r, i);
-    balls[i].vx = rands[i * 4 + 2] * 8 - 4;
-    balls[i].vy = rands[i * 4 + 3] * 8 - 4;
+    init_data[i * 3 + 0] = randf() * ARENA_WIDTH;
+    init_data[i * 3 + 1] = randf() * ARENA_HEIGHT;
+    init_data[i * 3 + 2] = min_r;
+    balls[i].vx = randf() * 1 - 0.5;
+    balls[i].vy = randf() * 1 - 0.5;
+  }
+
+  struct hshg hshg = {0};
+  hshg.update = update;
+  hshg.collide = collide;
+  hshg.entities_size = AGENTS_NUM + 1;
+  assert(!hshg_init(&hshg, CELLS_SIDE, CELL_SIZE));
+
+  const uint64_t ins_time = get_time();
+  for(hshg_entity_t i = 0; i < AGENTS_NUM; ++i) {
+    hshg_insert(&hshg, init_data[i * 3 + 0], init_data[i * 3 + 1], init_data[i * 3 + 2], i);
   }
   const uint64_t ins_end_time = get_time();
-  free(rands);
+  free(init_data);
   printf("took %" PRIu64 "ms to insert %d entities\n%" PRIu8 " grids\n\n", (ins_end_time - ins_time) / UINT64_C(1000000), AGENTS_NUM, hshg.grids_len);
-  
-  signal(SIGINT, sighandler);
 
   double upd[LATENCY_NUM];
   double opt[LATENCY_NUM];
@@ -160,9 +172,9 @@ int main() {
     const uint64_t upd_time = get_time();
     hshg_update(&hshg);
     const uint64_t opt_time = get_time();
-    if(i % 64 == 0) {
+    if(i % 32 == 0) {
       assert(!hshg_optimize(&hshg));
-      optimize_array_of_balls(&hshg);
+      balls_optimize(&hshg);
     }
     const uint64_t col_time = get_time();
     hshg_collide(&hshg);
@@ -174,28 +186,61 @@ int main() {
 
     if(i + 1 == LATENCY_NUM) {
       double upd_avg = 0;
-      for(int i = 0; i < LATENCY_NUM; ++i) {
+      for(i = 0; i < LATENCY_NUM; ++i) {
         upd_avg += upd[i];
       }
       upd_avg /= LATENCY_NUM;
+
+      double upd_sd = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        upd_sd += (upd[i] - upd_avg) * (upd[i] - upd_avg);
+      }
+      upd_sd = sqrtf(upd_sd / LATENCY_NUM);
 
       double opt_avg = 0;
       for(int i = 0; i < LATENCY_NUM; ++i) {
         opt_avg += opt[i];
       }
       opt_avg /= LATENCY_NUM;
+
+      double opt_sd = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        opt_sd += (opt[i] - opt_avg) * (opt[i] - opt_avg);
+      }
+      opt_sd = sqrtf(opt_sd / LATENCY_NUM);
       
       double col_avg = 0;
       for(int i = 0; i < LATENCY_NUM; ++i) {
         col_avg += col[i];
       }
       col_avg /= LATENCY_NUM;
+
+      double col_sd = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        col_sd += (col[i] - col_avg) * (col[i] - col_avg);
+      }
+      col_sd = sqrtf(col_sd / LATENCY_NUM);
       
-      printf("upd %.2lf ms\nopt %.2lf ms\ncol %.2lf ms\nall %.2lf ms\nattempted collisions %" PRIu64 "\nsucceeded collisions %" PRIu64 "\n",
-        upd_avg, opt_avg, col_avg, upd_avg + opt_avg + col_avg, maybe_collisions, collisions);
+      printf(
+        "--- | average |  sd  | col stats |\n"
+        "upd | %5.2lfms | %4.2lf | attempted |\n"
+        "opt | %5.2lfms | %4.2lf | %9." PRIu64 " |\n"
+        "col | %5.2lfms | %4.2lf | succeeded |\n"
+        "all | %5.2lfms | ---- | %9." PRIu64 " |\n",
+        upd_avg,
+        upd_sd,
+        opt_avg,
+        opt_sd,
+        maybe_collisions,
+        col_avg,
+        col_sd,
+        upd_avg + opt_avg + col_avg,
+        collisions
+      );
 
       maybe_collisions = 0;
       collisions = 0;
+      i = LATENCY_NUM - 1;
     }
     i = (i + 1) % LATENCY_NUM;
     if(intr) {

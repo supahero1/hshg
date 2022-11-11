@@ -5,71 +5,83 @@ Based on [this paper](https://www10.cs.fau.de/publications/theses/2009/Schornbau
 This HSHG implementation features:
 
 ### Ridiculously low memory requirements
-For a max of 65,535 objects on a 128x128 grid with 128 cell size, one cell will use 2 bytes and one object will take 24 bytes (includes `x`, `y`, and `r`), so in the worst case scenario, you will only need 1.6MB.
+For a max of 65,535 entities on a 128x128 grid with 128 cell size, one cell will use 2 bytes and one entity will take 24 bytes (includes `x`, `y`, and `r`), so in the worst case scenario, you will only need 1.6MB.
 
 ### No hidden costs[^1]
 When you insert an object, a few allocations might occur, but no further memory will be requested or shrank after the insertion.
 
 ### Incredible versatility
-The HSHG is suited for large areas thanks to mapping the infinite plane to a finite number of cells, but you may as well use it in setups in which objects are very dense and often clumped together in cells thanks to `O(1)` insertion, `O(1)` removal, and `hshg_optimize()`.
+The HSHG is suited for large areas thanks to mapping the infinite plane to a finite number of cells, but you may as well use it in setups in which entities are very dense and often clumped together in cells thanks to `O(1)` insertion, `O(1)` removal, and `hshg_optimize()`.
 
-Not only that, but this is a **hierarchical** grid, so you may insert any sized objects to it. You only need to specify parameters for the first "tightest" grid - the underlying code will do the rest for you.
+Not only that, but this is a **hierarchical** grid, so you may insert any sized entities to it. You only need to specify parameters for the first "tightest" grid - the underlying code will do the rest for you.
 
-## Codebase
+# Usage
 
-There's no `cmake` or `Makefile` files to build this project as a library. It's probably best if you simply include `hshg.c` and `hshg.h` in your project and build them there. However, you can build and run the benchmark `hshg_bench.c` with `./run.sh`.
+## C/C++
 
-If you do decide to use this project, you can read about how to use the underlying C functions in `usage.md`.
+`cd c`
+
+To install the library, run `make && sudo make install`.
+
+You can also run a benchmark with `./run.sh`. You don't need to build the library for that.
+
+If you decide to use the library in your project, read `usage.md` first. It goes into more detail about how the HSHG actually works and how to use it from a developer's perspective.
 
 ## JavaScript
 
+`cd js`
+
 ### Browser
+
+`cd browser; npm i`
 
 You can preview the HSHG running live with the help of [emscripten](https://emscripten.org/).
 
-Do `cd js/browser; npm i` to install required packages.
+If you are satisfied with the precompiled WASM file, go ahead and simply do `./run.sh`. Otherwise, you will need to manually install emscripten and then do `./build.sh && ./run.sh`.
 
-If you are satisfied with the precompiled WASM file under the `js/browser` directory, go ahead and simply run `./run.sh`. Otherwise, you will need to manually install emscripten and then do `./build.sh && ./run.sh`.
+The file used, `hshg_wasm.c`, is almost an exact copy of `c/hshg_bench.c`, with some emscripten-specific additions.
 
-The WASM binary runs about twice slower than the C equivalents (look benchmark table below).
+WASM runs with about half the speed of the C equivalent.
 
 ### Node.js
 
-`cd js/node; npm run install`
+`cd node; npm run install`
 
-## C Benchmarks
+Read `js_usage.md` for more information.
+
+# C Benchmarks
 
 Only not overclocked CPUs, one core, with `glibc`. See `hshg_bench.c` to see the specifics of how this is carried out.
 
 In a nutshell, the benchmark runs a simulation consisting of circles. Initially, they are moving in a random direction and are spaced out randomly. They collide with each other in real time.
 
-The benchmark logs various timings in the console, specifically `upd` (`hshg_update()`), `opt` (`hshg_optimize()`), and `col` (`hshg_collide()`). All of that is summed in `all`, and that is what is shown below.
+The benchmark logs various pieces of information in the console, specifically:
 
-The first part of the benchmark is a bootstrap into the second part, which uses data collected from the first one to optimise the binary further. In the table below, the first, unoptimized benchmark's results, are said to be the `1` (first) result, and the optimized run is the `2` (second) result.
+- time spent inserting all of the entities, not counted towards any of the below timings,
+- `upd` - the average of `hshg_update()` along with the standard deviation,
+- `opt` - the average of `hshg_optimize()` and `balls_optimize()` (defined in the benchmark's file) along with the standard deviation (which will usually be really high - that's normal)
+- `col` - the average of `hshg_collide()` along with the standard deviation,
+- `all` - summed up averages from the 3 above, and what is shown in the results' table below.
 
-|          CPU          |  Entities  | Entity radius | Cells[^2] | Cell size | Ins 1[^3] | Ins 2[^4] | Avg 1[^5] | Avg 2[^6] |
-| --------------------- | ---------- | ------------- | --------- | --------- | --------- | --------- | --------- | --------- |
-|     `i5 9600K`[^7]    |  500,000   |       7       |   2048    |    256    |   31ms    |   24ms    |  19.5ms   |  17.9ms   |
-|   `Intel Broadwell`   |  300,000   |       7       |   1024    |    256    |   40ms    |   30ms    |  27.9ms   |  24.0ms   |
-|    `Intel Skylake`    |  500,000   |       7       |   2048    |    256    |   41ms    |   33ms    |  19.6ms   |  16.9ms   |
-|     `Intel Xeon`      |  500,000   |       7       |   2048    |    256    |   53ms    |   48ms    |  28.7ms   |  25.2ms   |
-|    `AMD EPYC-Rome`    |  500,000   |       7       |   2048    |    256    |   38ms    |   33ms    |  22.5ms   |  18.5ms   |
-|    `i5 1135G7`[^8]    |  500,000   |       7       |   2048    |    256    |   31ms    |   24ms    |  18.1ms   |  16.3ms   |
+All of the below results feature the following simulation settings:
+
+|  Entities  | Entity size |   Cells   | Cell size |
+| ---------- | ----------- | --------- | --------- |
+|  500,000   |    14x14    | 2048x2048 |   16x16   |
+
+These settings are also in `c/hshg_bench.c`.
+
+The results:
+
+|          CPU          | Insertion | Average |
+| --------------------- | --------- | ------- |
+| `i5 9600K`            |   27ms    |  14.4ms |
+| `Intel Broadwell`     |   27ms    |  24.0ms |
+| `Intel Skylake`       |   19ms    |  16.9ms |
+| `Intel Xeon`          |   28ms    |  25.2ms |
+| `AMD EPYC-Rome`       |   22ms    |  18.5ms |
+| `i5 1135G7`           |   18ms    |  16.3ms |
 
 ---
 
 [^1]: Except `hshg_optimize()`, which makes an allocation to speed up other parts of the code. The function is optional though.
-
-[^2]: The number of cells on an axis, not the total number of cells in the smallest grid.
-
-[^3]: Insertion, compiled with `-O3 -march=native`.
-
-[^4]: Insertion, compiled with `-O3 -march=native -fprofile-use`.
-
-[^5]: Update + optimize + collide (one tick), compiled with `-O3 -march=native`.
-
-[^6]: Update + optimize + collide (one tick), compiled with `-O3 -march=native -fprofile-use`.
-
-[^7]: With this setup of the simulation, in 500 ticks, on average, there are 133 million collision checks, 73,500 of which result in a collision.
-
-[^8]: A laptop with performance mode on.

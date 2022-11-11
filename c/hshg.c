@@ -265,8 +265,8 @@ void hshg_update(struct hshg* const hshg) {
     if(entity->cell == hshg_cell_sq_max) continue;
     hshg->update(hshg, entity);
   }
-  hshg->calling = 0;
   hshg->entity_id = 0;
+  hshg->calling = 0;
 }
 
 void hshg_collide(struct hshg* const hshg) {
@@ -284,32 +284,33 @@ void hshg_collide(struct hshg* const hshg) {
     }
     hshg_cell_t cell_x = entity->cell & grid->cells_mask;
     hshg_cell_t cell_y = entity->cell >> grid->cells_log;
-    if(cell_x != 0) {
-      for(hshg_entity_t j = grid->cells[entity->cell - 1]; j != 0;) {
+    if(cell_y != grid->cells_mask) {
+      const hshg_entity_t* const cell = grid->cells + (entity->cell + grid->cells_side);
+      if(cell_x != 0) {
+        for(hshg_entity_t j = *(cell - 1); j != 0;) {
+          const struct hshg_entity* const ent = hshg->entities + j;
+          hshg->collide(hshg, entity, ent);
+          j = ent->next;
+        }
+      }
+      for(hshg_entity_t j = *cell; j != 0;) {
         const struct hshg_entity* const ent = hshg->entities + j;
         hshg->collide(hshg, entity, ent);
         j = ent->next;
       }
-      if(cell_y != grid->cells_mask) {
-        for(hshg_entity_t j = grid->cells[entity->cell + grid->cells_side - 1]; j != 0;) {
+      if(cell_x != grid->cells_mask) {
+        for(hshg_entity_t j = *(cell + 1); j != 0;) {
           const struct hshg_entity* const ent = hshg->entities + j;
           hshg->collide(hshg, entity, ent);
           j = ent->next;
         }
       }
     }
-    if(cell_y != grid->cells_mask) {
-      for(hshg_entity_t j = grid->cells[entity->cell + grid->cells_side]; j != 0;) {
+    if(cell_x != grid->cells_mask) {
+      for(hshg_entity_t j = grid->cells[entity->cell + 1]; j != 0;) {
         const struct hshg_entity* const ent = hshg->entities + j;
         hshg->collide(hshg, entity, ent);
         j = ent->next;
-      }
-      if(cell_x != grid->cells_mask) {
-        for(hshg_entity_t j = grid->cells[entity->cell + grid->cells_side + 1]; j != 0;) {
-          const struct hshg_entity* const ent = hshg->entities + j;
-          hshg->collide(hshg, entity, ent);
-          j = ent->next;
-        }
       }
     }
     for(uint8_t up_grid = entity->grid + 1; up_grid < hshg->grids_len; ++up_grid) {
@@ -366,7 +367,7 @@ int hshg_optimize(struct hshg* const hshg) {
   }
   free(hshg->entities);
   hshg->entities = entities;
-  assert(hshg->entities_used == idx);
+  hshg->entities_used = idx;
   hshg->free_entity = 0;
   return 0;
 }
@@ -383,7 +384,7 @@ int hshg_optimize(struct hshg* const hshg) {
   _a > _b ? _a : _b; \
 })
 
-void hshg_query(const struct hshg* const hshg, const hshg_pos_t _x1, const hshg_pos_t _y1, const hshg_pos_t _x2, const hshg_pos_t _y2) {
+void hshg_query(struct hshg* const hshg, const hshg_pos_t _x1, const hshg_pos_t _y1, const hshg_pos_t _x2, const hshg_pos_t _y2) {
   /* ^ +y
      -------------
      |      x2,y2|
@@ -394,7 +395,10 @@ void hshg_query(const struct hshg* const hshg, const hshg_pos_t _x1, const hshg_
   /* Calling query from the first update is invalid, but from any subsequent ones, sure. */
   assert(_x1 <= _x2);
   assert(_y1 <= _y2);
-  /* TODO hshg->calling = 1, except we want to return an array from this rather than calling a callback all the time? */
+  
+  const uint8_t old_calling = hshg->calling;
+  hshg->calling = 1;
+
   const hshg_pos_t inverse_grid_size = 1.0f / hshg->grid_size;
 
   hshg_pos_t x1;
@@ -502,6 +506,8 @@ void hshg_query(const struct hshg* const hshg, const hshg_pos_t _x1, const hshg_
     end_x >>= hshg->cell_div_log;
     end_y >>= hshg->cell_div_log;
   }
+
+  hshg->calling = old_calling;
 }
 
 #undef max

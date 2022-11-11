@@ -10,28 +10,68 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 
-#define AGENTS_NUM 4000
+#define AGENTS_NUM 4096
 
-#define CELLS_SIDE 128
+#define CELLS_SIDE 256
 #define AGENT_R 7
-#define CELL_SIZE 32
+#define CELL_SIZE 16
 #define ARENA_WIDTH (CELLS_SIDE * CELL_SIZE)
 #define ARENA_HEIGHT (CELLS_SIDE * CELL_SIZE)
 
-#define LATENCY_NUM 500
+#define LATENCY_NUM 300
 
 #define SINGLE_LAYER 0
+#define DELETE_BALLS 1
+
 
 struct ball {
   float vx;
   float vy;
 };
 
-struct ball balls[AGENTS_NUM];
+float* init_data = NULL;
+struct ball* balls = NULL;
+uint32_t ball_idx = 0;
+struct ball* balls_new = NULL;
 
-void update(struct hshg* hshg, hshg_entity_t x) {
-  struct hshg_entity* const a = hshg->entities + x;
+void balls_update(struct hshg* hshg, struct hshg_entity* a) {
+  balls_new[ball_idx] = balls[a->ref];
+  a->ref = ball_idx;
+  ++ball_idx;
+}
+
+void balls_optimize(struct hshg* hshg) {
+  balls_new = calloc(AGENTS_NUM, sizeof(*balls_new));
+  assert(balls_new);
+  ball_idx = 0;
+  hshg_update_t old = hshg->update;
+  hshg->update = balls_update;
+  hshg_update(hshg);
+  free(balls);
+  balls = balls_new;
+  hshg->update = old;
+}
+
+
+unsigned int i = 0;
+float sin_values[100];
+#define SINS (sizeof(sin_values) / sizeof(*sin_values))
+
+float randf(void) {
+  return (double) rand() / (double) RAND_MAX;
+}
+
+void update(struct hshg* hshg, struct hshg_entity* a) {
   struct ball* const ball = balls + a->ref;
+
+#if DELETE_BALLS == 1
+  if(i % AGENTS_NUM == a->ref) {
+    const hshg_entity_t ref = a->ref;
+    hshg_remove(hshg);
+    assert(!hshg_insert(hshg, init_data[ref * 3 + 0], init_data[ref * 3 + 1], init_data[ref * 3 + 2] + AGENT_R * 2, ref));
+    return;
+  }
+#endif
 
   a->x += ball->vx;
   if(a->x < a->r) {
@@ -41,7 +81,7 @@ void update(struct hshg* hshg, hshg_entity_t x) {
     ball->vx *= 0.9;
     --ball->vx;
   }
-  ball->vx *= 0.995;
+  ball->vx *= 0.98;
   
   a->y += ball->vy;
   if(a->y < a->r) {
@@ -51,9 +91,14 @@ void update(struct hshg* hshg, hshg_entity_t x) {
     ball->vy *= 0.9;
     --ball->vy;
   }
-  ball->vy *= 0.995;
+  ball->vy *= 0.98;
 
-  hshg_move(hshg, x);
+  hshg_move(hshg);
+
+#if SINGLE_LAYER == 0
+  a->r += sin_values[i % SINS] * (50.0f / SINS);
+  hshg_resize(hshg);
+#endif
 }
 
 uint64_t maybe_collisions = 0;
@@ -79,6 +124,9 @@ void collide(const struct hshg* hshg, const struct hshg_entity* a, const struct 
   }
 }
 
+uint32_t width;
+uint32_t height;
+
 void query(const struct hshg* hshg, const struct hshg_entity* a) {
   (void) hshg;
   EM_ASM({
@@ -87,8 +135,9 @@ void query(const struct hshg* hshg, const struct hshg_entity* a) {
     window.ctx.strokeStyle = "#ddd";
     window.ctx.lineWidth = 1;
     window.ctx.stroke();
-  }, a->x - 1088, a->y - 1508, a->r);
+  }, a->x - ((ARENA_WIDTH >> 1) - width), a->y - ((ARENA_HEIGHT >> 1) - height), a->r);
 }
+
 
 uint64_t get_time(void) {
   struct timespec ts;
@@ -96,16 +145,11 @@ uint64_t get_time(void) {
   return UINT64_C(1000000000) * ts.tv_sec + ts.tv_nsec;
 }
 
-float randf(void) {
-  return (double) rand() / (double) RAND_MAX;
-}
-
 struct hshg hshg = {0};
 
 double upd[LATENCY_NUM];
 double opt[LATENCY_NUM];
 double col[LATENCY_NUM];
-int i = 0;
 
 EM_BOOL tick(double nil1, void* nil2) {
   (void) nil1;
@@ -115,14 +159,24 @@ EM_BOOL tick(double nil1, void* nil2) {
     window.ctx.clearRect(0, 0, window.canvas.width, window.canvas.height);
   });
 
+  width = EM_ASM_INT({
+    return window.canvas.width;
+  }) >> 1;
+  height = EM_ASM_INT({
+    return window.canvas.height;
+  }) >> 1;
+
   const uint64_t upd_time = get_time();
   hshg_update(&hshg);
   const uint64_t opt_time = get_time();
-  assert(!hshg_optimize(&hshg));
+  if(i % 64 == 0) {
+    assert(!hshg_optimize(&hshg));
+    balls_optimize(&hshg);
+  }
   const uint64_t col_time = get_time();
   hshg_collide(&hshg);
   const uint64_t end_time = get_time();
-  hshg_query(&hshg, 1088, 1508, 1088 + 1920, 1508 + 1080);
+  hshg_query(&hshg, (ARENA_WIDTH >> 1) - width, (ARENA_HEIGHT >> 1) - height, (ARENA_WIDTH >> 1) + width, (ARENA_HEIGHT >> 1) + height);
 
   upd[i] = (double)(opt_time - upd_time) / 1000000.0;
   opt[i] = (double)(col_time - opt_time) / 1000000.0;
@@ -130,28 +184,61 @@ EM_BOOL tick(double nil1, void* nil2) {
 
   if(i + 1 == LATENCY_NUM) {
     double upd_avg = 0;
-    for(int i = 0; i < LATENCY_NUM; ++i) {
+    for(i = 0; i < LATENCY_NUM; ++i) {
       upd_avg += upd[i];
     }
     upd_avg /= LATENCY_NUM;
+
+    double upd_sd = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      upd_sd += (upd[i] - upd_avg) * (upd[i] - upd_avg);
+    }
+    upd_sd = sqrtf(upd_sd / LATENCY_NUM);
 
     double opt_avg = 0;
     for(int i = 0; i < LATENCY_NUM; ++i) {
       opt_avg += opt[i];
     }
     opt_avg /= LATENCY_NUM;
+
+    double opt_sd = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      opt_sd += (opt[i] - opt_avg) * (opt[i] - opt_avg);
+    }
+    opt_sd = sqrtf(opt_sd / LATENCY_NUM);
       
     double col_avg = 0;
     for(int i = 0; i < LATENCY_NUM; ++i) {
       col_avg += col[i];
     }
     col_avg /= LATENCY_NUM;
+
+    double col_sd = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      col_sd += (col[i] - col_avg) * (col[i] - col_avg);
+    }
+    col_sd = sqrtf(col_sd / LATENCY_NUM);
       
-    printf("upd %.2lf ms\nopt %.2lf ms\ncol %.2lf ms\nall %.2lf ms\nattempted collisions %" PRIu64 "\nsucceeded collisions %" PRIu64 "\n",
-      upd_avg, opt_avg, col_avg, upd_avg + opt_avg + col_avg, maybe_collisions, collisions);
+    printf(
+      "--- | average |  sd  | col stats |\n"
+      "upd | %5.2lfms | %4.2lf | attempted |\n"
+      "opt | %5.2lfms | %4.2lf | %9." PRIu64 " |\n"
+      "col | %5.2lfms | %4.2lf | succeeded |\n"
+      "all | %5.2lfms | ---- | %9." PRIu64 " |\n",
+      upd_avg,
+      upd_sd,
+      opt_avg,
+      opt_sd,
+      maybe_collisions,
+      col_avg,
+      col_sd,
+      upd_avg + opt_avg + col_avg,
+      collisions
+    );
 
     maybe_collisions = 0;
     collisions = 0;
+    i = LATENCY_NUM - 1;
   }
   i = (i + 1) % LATENCY_NUM;
 
@@ -176,19 +263,13 @@ int main() {
   });
 
   srand(get_time());
-  float* rands = malloc(sizeof(float) * AGENTS_NUM * 4);
-  assert(rands);
-  for(uint32_t i = 0; i < AGENTS_NUM * 4; ++i) {
-    rands[i] = randf();
-  }
 
-  hshg.update = update;
-  hshg.collide = collide;
-  hshg.query = query;
-  hshg.entities_size = AGENTS_NUM + 1;
-  assert(!hshg_init(&hshg, CELLS_SIDE, CELL_SIZE));
+  balls = calloc(AGENTS_NUM, sizeof(*balls));
+  assert(balls);
 
-  const uint64_t ins_time = get_time();
+  init_data = malloc(sizeof(float) * AGENTS_NUM * 3);
+  assert(init_data);
+
   for(hshg_entity_t i = 0; i < AGENTS_NUM; ++i) {
 #if SINGLE_LAYER == 0
     float min_r = 999999.0f;
@@ -198,20 +279,38 @@ int main() {
         min_r = new;
       }
     }
+    if(min_r > 384.0f) {
+      min_r = 384.0f;
+    }
 #else
     float min_r = AGENT_R;
 #endif
-    hshg_insert(&hshg, &((struct hshg_entity) {
-      .x = rands[i * 4 + 0] * ARENA_WIDTH,
-      .y = rands[i * 4 + 1] * ARENA_HEIGHT,
-      .r = min_r,
-      .ref = i
-    }));
-    balls[i].vx = rands[i * 4 + 2] * 1 - 0.5;
-    balls[i].vy = rands[i * 4 + 3] * 1 - 0.5;
+    init_data[i * 3 + 0] = randf() * ARENA_WIDTH;
+    init_data[i * 3 + 1] = randf() * ARENA_HEIGHT;
+    init_data[i * 3 + 2] = min_r;
+    balls[i].vx = randf() * 1 - 0.5;
+    balls[i].vy = randf() * 1 - 0.5;
+  }
+
+  hshg.update = update;
+  hshg.collide = collide;
+  hshg.query = query;
+  hshg.entities_size = AGENTS_NUM + 1;
+  assert(!hshg_init(&hshg, CELLS_SIDE, CELL_SIZE));
+#if SINGLE_LAYER == 0
+  assert(!hshg_prealloc(&hshg, 500.0f));
+#endif
+
+  const float fragment = M_PI * 2 / SINS;
+  for(int s = 0; s < SINS; ++s) {
+    sin_values[s] = sinf(fragment * s);
+  }
+
+  const uint64_t ins_time = get_time();
+  for(hshg_entity_t i = 0; i < AGENTS_NUM; ++i) {
+    hshg_insert(&hshg, init_data[i * 3 + 0], init_data[i * 3 + 1], init_data[i * 3 + 2], i);
   }
   const uint64_t ins_end_time = get_time();
-  free(rands);
   printf("took %" PRIu64 "ms to insert %d entities\n%" PRIu8 " grids\n\n", (ins_end_time - ins_time) / UINT64_C(1000000), AGENTS_NUM, hshg.grids_len);
 
   emscripten_request_animation_frame_loop(tick, NULL);
