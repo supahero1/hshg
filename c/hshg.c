@@ -392,7 +392,6 @@ void hshg_query(struct hshg* const hshg, const hshg_pos_t _x1, const hshg_pos_t 
      |x1,y1      |
      -------------> +x */
   assert(hshg->query);
-  /* Calling query from the first update is invalid, but from any subsequent ones, sure. */
   assert(_x1 <= _x2);
   assert(_y1 <= _y2);
   

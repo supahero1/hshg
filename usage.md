@@ -6,7 +6,7 @@ This section does not document API functions, however you should read this befor
 
 ### Grids
 
-A Hierarchical Spatial Hash Grid, as the name suggests, keeps track of multiple grids that are ordered in a hierarchy, from the "tightest" grid (the most number of cells, the smallest cells) to the "loosest" one (the least number of cells, the biggest cells). In this specific implementation of a HSHG, all grids must have a cell size that's a power of 2, as well as a number of cells on one side being a power of 2. Thus, every grid is a square, with square cells, and subsequent loose grids are created by taking the previous loosest grid, dividing its number of cells on one side by a power of 2 and multiplying its cell size by the same power of 2. The new grid is then of the same size as the old one, however it has fewer cells, with the cells being bigger. The division factor can be manipulated via `hshg.cell_div_log`, with the default value being `1`, corresponding to a division factor of `2`. If it were to have a value of `2`, the division factor would be `4`, and so on (a `2 ** n` relation).
+A Hierarchical Spatial Hash Grid, as the name suggests, keeps track of multiple grids that are ordered in a hierarchy, from the "tightest" grid (the most number of cells, the smallest cells) to the "loosest" one (the least number of cells, the biggest cells). In this specific implementation of an HSHG, all grids must have a cell size that's a power of 2, as well as a number of cells on one side being a power of 2. Thus, every grid is a square, with square cells, and subsequent loose grids are created by taking the previous loosest grid, dividing its number of cells on one side by a power of 2 and multiplying its cell size by the same power of 2. The new grid is then of the same size as the old one, however it has fewer cells, with the cells being bigger. The division factor can be manipulated via `hshg.cell_div_log`, with the default value being `1`, corresponding to a division factor of `2`. If it were to have a value of `2`, the division factor would be `4`, and so on (a `2 ** n` relation).
 
 You can also resize entities in the update function (`hshg.update`, called in `hshg_update()` for every entity) via `hshg_resize()`. The function does not accept failure, so it will always expect the new entity, no matter if larger or smaller, to fit in the existing grids. If the entity got bigger and there isn't a grid that can fit it, the program will abort. If you want to use this functionality, you must call `hshg_prealloc(&structure, radius_of_biggest_entity)` after calling `hshg_init()` and before calling `hshg_resize()`. That function will generate enough grids to fit an entity of size `radius_of_biggest_entity * 2`. Subsequent insertions will also benefit from this, because they won't have to create more grids on the fly as new entities come in.
 
@@ -14,44 +14,56 @@ You can also resize entities in the update function (`hshg.update`, called in `h
 
 A new entity is inserted to a grid that fits the entity entirely in one cell, and so that the previous grid's cell size would be too small for the entity (to not insert entities to oversized cells). Due to this, only one copy of the entity is needed over its whole lifetime, and it only occupies one cell in one grid, unlike other structures like a non-hierarchical grid structure, or a QuadTree, in which case you need to be varied of duplicates in leaf nodes and so. When an entity that's bigger than the top grid's cell size is inserted, the underlying code in response allocates more grids, as many as necessary to fit the new entity, with the method described in the paragraphs above.
 
-All entities are stored in one big array that's dynamically resized if needed. By default, if it needs resizing in order to fit a new entity, the underlying code will double the current array size. This might be a pretty universal solution, however it might not be feasible for some use cases. If you need precise control of the array's size, consider using `hshg_set_size()` before using `hshg_insert()`. Additionally, if entities are removed, the array is not shrank to a smaller size. If you need to do that, you can use `hshg_set_size(&structure, structure.entities_used)`, which will eliminate most of the unused space in the array.
+All entities are stored in one big array that's dynamically resized if needed. By default, if it needs resizing in order to fit a new entity, the underlying code will double the current array size. This might be a pretty universal solution, however it might not be feasible for some use cases. If you need precise control of the array's size, consider using `hshg_set_size()` before using `hshg_insert()`:
+
+```c
+assert(!hshg_set_size(&hshg, hshg.entities_used + 100));
+/* ... proceed to insert 100 entities ... */
+```
+
+Additionally, if entities are removed, the array is not shrank to a smaller size. If you need to do that, you can use `hshg_set_size(&structure, structure.entities_used)`, which will eliminate most of the unused space in the array.
 
 Entities may only be altered in `hshg_update()` (`hshg.update`). In all other callbacks, they are read-only. To apply velocity changes that happen during collision or any other changes, you must offload them to some external object that's linked to the HSHG's internal representation of an entity. To do that, insert an entity with its `ref` member set to something that lets you point to the object that the entity owns (see `c/hshg_bench.c` for an example). This can be done with a simple array holding objects and `ref` being an integer index. You can then access `ref` from within the `hshg.update` callback. Trying to change HSHG's entities while in `hshg.collide` or `hshg.query` will lead to unwanted results (like inaccurate collision).
 
-This implementation of a HSHG maps the infinite plane to a finite number of cells - entities don't need to always stay on top of the HSHG's area (from `(0, 0)` to whatever `(cells * cell_size, cells * cell_size)` is), they can be somewhere entirely else. However, refrain from doing something like this:
+### Pitfalls
 
-```
-                    0                1                2
-                  2 ----------------------------------- 2
-                    |                |                |
-                    |                |                |
-                    |                |                |
-                    |                |                |
-                    |   HSHGs area   |   HSHGs area   |
-  -1                |                |                |
- 1 ---------------------------------------------------- 1
-   |                |                |                |
-   |   Your arena   |   Your arena   |                |
-   |                |                |                |
-   |                |                |                |
-   |                |   HSHGs area   |   HSHGs area   |
-   |                |                |                |
- 0 ----------------0,0--------------------------------- 0
-   |                |                |                2
-   |   Your arena   |   Your arena   |
-   |                |                |
-   |                |                |
-   |                |                |
-   |                |                |
--1 ----------------------------------- -1
-  -1                0                1
-```
+- This implementation of an HSHG maps the infinite plane to a finite number of cells - entities don't need to always stay on top of the HSHG's area (from `(0, 0)` to whatever `(cells * cell_size, cells * cell_size)` is), they can be somewhere entirely else. However, refrain from doing something like this:
 
-This will result in performance slightly worse than if the HSHG was 4 times smaller in size (one of the cells instead of all 4), because ALL of your arena cells will be mapped to the same exact HSHG cell. If you don't know how this implementation of HSHGs folds the XOY plane to grids, you should just stick to **one** of the four XOY quadrants (as in, maybe make all positions positive instead of having any negatives).
+  ```
+                      0                1                2
+                    2 ----------------------------------- 2
+                      |                |                |
+                      |                |                |
+                      |                |                |
+                      |                |                |
+                      |   HSHGs area   |   HSHGs area   |
+    -1                |                |                |
+  1 ---------------------------------------------------- 1
+    |                |                |                |
+    |   Your arena   |   Your arena   |                |
+    |                |                |                |
+    |                |                |                |
+    |                |   HSHGs area   |   HSHGs area   |
+    |                |                |                |
+  0 ----------------0,0--------------------------------- 0
+    |                |                |                2
+    |   Your arena   |   Your arena   |
+    |                |                |
+    |                |                |
+    |                |                |
+    |                |                |
+  -1 ----------------------------------- -1
+    -1                0                1
+  ```
 
-### Tuning
+  This will result in performance slightly worse than if the HSHG was 4 times smaller in size (one of the cells instead of all 4), because ALL of your arena cells will be mapped to the same exact HSHG cell. If you don't know how this implementation of HSHGs folds the XOY plane to grids, you should just stick to **one** of the four XOY quadrants (as in, maybe make all positions positive instead of having any negatives).
 
-This HSHG has lots of moving parts. To make sure you get the best performance, you need to keep trying various numbers for various things and see what works the best for your setup.
+- `hshg.entities_used` and `hshg.entities_size` start from 1, not 0. This doesn't really matter if you use `hshg_set_size()` with a relative size, like `hshg.entities_used + 100` to get 100 more spots, but beware of this:
+
+  ```c
+  hshg_set_size(&hshg, 100);
+  /* WARNING! This     ^^^     allows for only 99 entities! */
+  ```
 
 ## API
 
@@ -286,7 +298,7 @@ const uint32_t total_size = cells * cell_size;
 hshg_query(&hshg, 0, 0, total_size, total_size);
 ```
 
-You may not call any of `hshg_update()`, `hshg_optimize()`, or `hshg_collide()` from this callback.
+You may not call any of `hshg_update()`, `hshg_optimize()`, or `hshg_collide()` from this callback. You may recursively call `hshg_query()` from its callback.
 
 Summing up all of the above, a normal update tick would look like so:
 
@@ -302,3 +314,67 @@ hshg_collide(&hshg);
 ```
 
 For a complete example, see `c/hshg_bench.c` and `js/browser/hshg_wasm.c`.
+
+## Optimizations
+
+A few methods were already mentioned above:
+
+- Picking cell size and the number of cells appropriately,
+- Calling `hshg_optimize()` only once per a few ticks,
+- Experimenting with `hshg.cell_div_log`.
+
+However, there's still room for improvement.
+
+- `hshg_optimize()` causes the internal array of entities of an HSHG to be reordered in a cache-friendly way. That's only part of what entities consist of though - above, `struct my_entity` was an additional part of every entity, with the difference that it existed in a different array. Over time, the order of entities internally will become more and more different from the non-changing array `struct my_entity entities[]`, and so in the update callback, you would be accessing a totally different index internally than in `entities`. That will create cache issues and might slow down the callback even up to 2 times. You can write a function that mitigates this, however at the cost of an additional memory allocation, just like `hshg_optimize()`:
+
+  ```c
+  struct my_entity* entities = NULL;
+  struct my_entity* entities_new = NULL;
+  hshg_entity_t new_idx = 0;
+
+  void update_optimize_entities(struct hshg* hshg, struct hshg_entity* entity) {
+    entities_new[new_idx] = entities[a->ref];
+    entity->ref = new_idx;
+    ++new_idx;
+  }
+
+  void optimize_entities(struct hshg* hshg) {
+    entities_new = calloc(ABC, sizeof(*entities));
+    assert(entities_new);
+    new_idx = 0;
+    hshg_update_t old = hshg->update;
+    hshg->update = update_optimize_entities;
+    hshg_update(hshg);
+    free(entities);
+    entities = entities_new;
+    hshg->update = old;
+  }
+
+  /* .. and then, in tick .. */
+  if(tick_counter % 64 == 0) {
+    /* order matters */
+    assert(!hshg_optimize(&hshg));
+    optimize_entities(&hshg);
+  }
+  ```
+
+- You might not need to make the HSHG as big as the area you are working with - entities outside of the HSHG's area coverage are still inserted into it, and not on the edge cells like in most QuadTree implementations - they are actually well mapped and spaced out, so basically no performance is lost. Especially in setups where entities are very scattered and not clumped, your performance *might* improve if you decrease the number of cells. On the contrary, increasing the structure's size above of what you need probably won't bring any benefits.
+
+- If your memory is constrained beyond belief, and you certainly won't use a lot of cells and entities, or if you actually have higher requirements than what the defaults are, you might want to opt in changing some constants in the `c/hshg.h` file and recompiling the library (or, if you are simply including the files in your own project, you can redefine these macros before `#include`'ing `hshg.h`). Namely:
+
+  - `hshg_entity_t` - type that fits the number of entities,
+  - `hshg_cell_t` - type that fits the number of cells **on one axis**,
+  - `hshg_cell_sq_t` - type that fits the total number of cells (might be the same as `hshg_cell_t`),
+  - `hshg_pos_t` - type that `x`, `y`, and `r` are using (`float` by default).
+
+  For the first 3, there's no need to make them signed. As for `hshg_pos_t`, only floating-point types are allowed.
+
+  Say you won't use more than 10,000 entities, and you want to have 64x64 cells, 32x32 cell size each. In that case, you may set these constants to the following:
+
+  ```c
+  #define hshg_entity_t  uint16_t
+  #define hshg_cell_t    uint8_t
+  #define hshg_cell_sq_t uint16_t
+  ```
+
+  That will save up a few bytes, not only in `struct hshg_entity`, but also in `struct hshg`, and note that each cell is of type `hshg_entity_t`, so the smaller that is, the less memory cells will use. With the above settings, your simulation would use roughly 250KB (not counting in memory that might be allocated by `hshg_optimize()` and any custom data you might want to keep alongside entities in a separate array).

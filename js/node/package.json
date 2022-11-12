@@ -1,7 +1,7 @@
 {
   "name": "hshg",
   "version": "1.0.0",
-  "description": "Hierarchical Spatial Hash Grid written in C",
+  "description": "2D Hierarchical Spatial Hash Grid written in C",
   "main": "hshg.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -12,7 +12,8 @@
     "url": "git+https://github.com/supahero1/hshg.git"
   },
   "keywords": [
-    "hshg"
+    "hshg",
+    "c"
   ],
   "author": "supahero1",
   "license": "Apache-2.0",

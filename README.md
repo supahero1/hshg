@@ -25,7 +25,7 @@ To install the library, run `make && sudo make install`.
 
 You can also run a benchmark with `./run.sh`. You don't need to build the library for that.
 
-If you decide to use the library in your project, read `usage.md` first. It goes into more detail about how the HSHG actually works and how to use it from a developer's perspective.
+If you decide to use the library in your project, read [usage](usage.md) first. It goes into more detail about how the HSHG actually works and how to use it from a developer's perspective.
 
 ## JavaScript
 
@@ -47,7 +47,7 @@ WASM runs with about half the speed of the C equivalent.
 
 `cd node; npm run install`
 
-Read `js_usage.md` for more information.
+Read [JavaScript usage](js_usage.md) for more information.
 
 # C Benchmarks
 
@@ -71,6 +71,10 @@ All of the below results feature the following simulation settings:
 
 These settings are also in `c/hshg_bench.c`.
 
+The simulation looks like so (a tiny part of it):
+
+![Simulation preview](img/preview.png)
+
 The results:
 
 |          CPU          | Insertion | Average |
@@ -81,7 +85,5 @@ The results:
 | `Intel Xeon`          |   28ms    |  25.2ms |
 | `AMD EPYC-Rome`       |   22ms    |  18.5ms |
 | `i5 1135G7`           |   18ms    |  16.3ms |
-
----
 
 [^1]: Except `hshg_optimize()`, which makes an allocation to speed up other parts of the code. The function is optional though.
