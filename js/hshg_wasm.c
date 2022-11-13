@@ -20,8 +20,8 @@
 
 #define LATENCY_NUM 300
 
-#define SINGLE_LAYER 0
-#define DELETE_BALLS 1
+#define SINGLE_LAYER 1
+#define DELETE_BALLS 0
 
 
 struct ball {
@@ -81,7 +81,7 @@ void update(struct hshg* hshg, struct hshg_entity* a) {
     ball->vx *= 0.9;
     --ball->vx;
   }
-  ball->vx *= 0.98;
+  ball->vx *= 0.998;
   
   a->y += ball->vy;
   if(a->y < a->r) {
@@ -91,7 +91,7 @@ void update(struct hshg* hshg, struct hshg_entity* a) {
     ball->vy *= 0.9;
     --ball->vy;
   }
-  ball->vy *= 0.98;
+  ball->vy *= 0.998;
 
   hshg_move(hshg);
 

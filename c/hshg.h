@@ -109,6 +109,14 @@ extern void hshg_update(struct hshg* const);
 
 extern void hshg_collide(struct hshg* const);
 
+struct hshg_entity_min {
+  hshg_cell_sq_t cell;
+  uint8_t grid;
+  hshg_entity_t next;
+};
+
+extern void hshg_collide2(const struct hshg* const, const struct hshg_entity_min*);
+
 extern int  hshg_optimize(struct hshg* const);
 
 extern void hshg_query(struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);

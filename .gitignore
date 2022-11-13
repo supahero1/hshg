@@ -1,7 +1,5 @@
-js/browser/node_modules
-js/browser/package-lock.json
-
-js/node/build
+js/node_modules
+js/package-lock.json
 
 c/hshg_bench
 c/libhshg.so

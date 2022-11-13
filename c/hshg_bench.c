@@ -19,7 +19,7 @@
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 2000
+#define LATENCY_NUM 1000
 
 #define SINGLE_LAYER 1
 
@@ -83,20 +83,23 @@ uint64_t collisions = 0;
 
 void collide(const struct hshg* hshg, const struct hshg_entity* a, const struct hshg_entity* b) {
   (void) hshg;
-  const float xd = a->x - b->x;
-  const float yd = a->y - b->y;
-  const float d = xd * xd + yd * yd;
-  ++maybe_collisions;
-  if(d <= (a->r + b->r) * (a->r + b->r)) {
-    ++collisions;
-    const float angle = atan2f(yd, xd);
-    const float c = cosf(angle);
-    const float s = sinf(angle);
-    balls[a->ref].vx += c;
-    balls[a->ref].vy += s;
-    balls[b->ref].vx -= c;
-    balls[b->ref].vy -= s;
-  }
+  const float r = a->r + b->r;
+  // if(a->x + r >= b->x && a->x <= b->x + r && a->y + r >= b->y && a->y <= b->y + r) {
+    ++maybe_collisions;
+    const float xd = a->x - b->x;
+    const float yd = a->y - b->y;
+    const float d = xd * xd + yd * yd;
+    if(d <= r * r) {
+      ++collisions;
+      const float angle = atan2f(yd, xd);
+      const float c = cosf(angle);
+      const float s = sinf(angle);
+      balls[a->ref].vx += c;
+      balls[a->ref].vy += s;
+      balls[b->ref].vx -= c;
+      balls[b->ref].vy -= s;
+    }
+  // }
 }
 
 
@@ -155,6 +158,7 @@ int main() {
   hshg.collide = collide;
   hshg.entities_size = AGENTS_NUM + 1;
   assert(!hshg_init(&hshg, CELLS_SIDE, CELL_SIZE));
+  //assert(!hshg_prealloc(&hshg, 999999.0));
 
   const uint64_t ins_time = get_time();
   for(hshg_entity_t i = 0; i < AGENTS_NUM; ++i) {
@@ -168,6 +172,7 @@ int main() {
   double opt[LATENCY_NUM];
   double col[LATENCY_NUM];
   int i = 0;
+  puts("--- | average |  sd  | +- 0.1ms | +- 0.3ms | +- 0.5ms | +- 1.0ms | col stats |");
   while(1) {
     const uint64_t upd_time = get_time();
     hshg_update(&hshg);
@@ -176,9 +181,21 @@ int main() {
       assert(!hshg_optimize(&hshg));
       balls_optimize(&hshg);
     }
+    // struct hshg_entity_min* min = malloc(sizeof(*min) * hshg.entities_used);
+    // assert(min);
+    // for(hshg_entity_t i = 1; i < hshg.entities_used; ++i) {
+    //   const struct hshg_entity* const ent = hshg.entities + i;
+    //   min[i] = (struct hshg_entity_min) {
+    //     .cell = ent->cell,
+    //     .grid = ent->grid,
+    //     .next = ent->next
+    //   };
+    // }
     const uint64_t col_time = get_time();
     hshg_collide(&hshg);
+    // hshg_collide2(&hshg, min);
     const uint64_t end_time = get_time();
+    // free(min);
 
     upd[i] = (double)(opt_time - upd_time) / 1000000.0;
     opt[i] = (double)(col_time - opt_time) / 1000000.0;
@@ -197,17 +214,43 @@ int main() {
       }
       upd_sd = sqrtf(upd_sd / LATENCY_NUM);
 
+      double upd_01 = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        if(upd[i] >= upd_avg - 0.1 && upd[i] <= upd_avg + 0.1) {
+          ++upd_01;
+        }
+      }
+      upd_01 = upd_01 / LATENCY_NUM * 100;
+
+      double upd_03 = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        if(upd[i] >= upd_avg - 0.3 && upd[i] <= upd_avg + 0.3) {
+          ++upd_03;
+        }
+      }
+      upd_03 = upd_03 / LATENCY_NUM * 100;
+
+      double upd_05 = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        if(upd[i] >= upd_avg - 0.5 && upd[i] <= upd_avg + 0.5) {
+          ++upd_05;
+        }
+      }
+      upd_05 = upd_05 / LATENCY_NUM * 100;
+
+      double upd_10 = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        if(upd[i] >= upd_avg - 1.0 && upd[i] <= upd_avg + 1.0) {
+          ++upd_10;
+        }
+      }
+      upd_10 = upd_10 / LATENCY_NUM * 100;
+
       double opt_avg = 0;
       for(int i = 0; i < LATENCY_NUM; ++i) {
         opt_avg += opt[i];
       }
       opt_avg /= LATENCY_NUM;
-
-      double opt_sd = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        opt_sd += (opt[i] - opt_avg) * (opt[i] - opt_avg);
-      }
-      opt_sd = sqrtf(opt_sd / LATENCY_NUM);
       
       double col_avg = 0;
       for(int i = 0; i < LATENCY_NUM; ++i) {
@@ -221,19 +264,58 @@ int main() {
       }
       col_sd = sqrtf(col_sd / LATENCY_NUM);
       
+      double col_01 = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        if(col[i] >= col_avg - 0.1 && col[i] <= col_avg + 0.1) {
+          ++col_01;
+        }
+      }
+      col_01 = col_01 / LATENCY_NUM * 100;
+
+      double col_03 = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        if(col[i] >= col_avg - 0.3 && col[i] <= col_avg + 0.3) {
+          ++col_03;
+        }
+      }
+      col_03 = col_03 / LATENCY_NUM * 100;
+
+      double col_05 = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        if(col[i] >= col_avg - 0.5 && col[i] <= col_avg + 0.5) {
+          ++col_05;
+        }
+      }
+      col_05 = col_05 / LATENCY_NUM * 100;
+
+      double col_10 = 0;
+      for(i = 0; i < LATENCY_NUM; ++i) {
+        if(col[i] >= col_avg - 1.0 && col[i] <= col_avg + 1.0) {
+          ++col_10;
+        }
+      }
+      col_10 = col_10 / LATENCY_NUM * 100;
+
       printf(
-        "--- | average |  sd  | col stats |\n"
-        "upd | %5.2lfms | %4.2lf | attempted |\n"
-        "opt | %5.2lfms | %4.2lf | %9." PRIu64 " |\n"
-        "col | %5.2lfms | %4.2lf | succeeded |\n"
-        "all | %5.2lfms | ---- | %9." PRIu64 " |\n",
+        "------------------------------------------------------------------------------\n"
+        "upd | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | attempted |\n"
+        "opt | %5.2lfms | ---- | -------- | -------- | -------- | -------- | %9." PRIu64 " |\n"
+        "col | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | succeeded |\n"
+        "all | %5.2lfms | ---- | -------- | -------- | -------- | -------- | %9." PRIu64 " |\n",
         upd_avg,
         upd_sd,
+        upd_01,
+        upd_03,
+        upd_05,
+        upd_10,
         opt_avg,
-        opt_sd,
         maybe_collisions,
         col_avg,
         col_sd,
+        col_01,
+        col_03,
+        col_05,
+        col_10,
         upd_avg + opt_avg + col_avg,
         collisions
       );
