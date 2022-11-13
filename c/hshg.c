@@ -16,9 +16,19 @@
 
 #include "hshg.h"
 
+#ifdef HSHG_NDEBUG
+#define NDEBUG
+#endif
+
 #include <math.h>
 #include <stdlib.h>
 #include <assert.h>
+
+#ifdef HSHG_NDEBUG
+#define set_calling_to(hshg, to)
+#else
+#define set_calling_to(hshg, to) ((hshg)->calling = (to))
+#endif
 
 static uint8_t hshg_create_grid(struct hshg* const hshg) {
   ++hshg->grids_len;
@@ -260,20 +270,20 @@ void hshg_update(struct hshg* const hshg) {
   assert(hshg->update);
   assert(!hshg->entity_id && "Nested updates are forbidden");
   assert(!hshg->calling && "hshg_update() may not be called from any callback");
-  hshg->calling = 1;
+  set_calling_to(hshg, 1);
   for(hshg->entity_id = 1; hshg->entity_id < hshg->entities_used; ++hshg->entity_id) {
     struct hshg_entity* const entity = hshg->entities + hshg->entity_id;
     if(entity->cell == hshg_cell_sq_max) continue;
     hshg->update(hshg, entity);
   }
   hshg->entity_id = 0;
-  hshg->calling = 0;
+  set_calling_to(hshg, 0);
 }
 
-void hshg_collide(struct hshg* const hshg) {
+void hshg_collide(MAYBE_CONST struct hshg* const hshg) {
   assert(hshg->collide);
   assert(!hshg->calling && "hshg_collide() may not be called from any callback");
-  hshg->calling = 1;
+  set_calling_to(hshg, 1);
   for(hshg_entity_t i = 1; i < hshg->entities_used; ++i) {
     const struct hshg_entity* const entity = hshg->entities + i;
     if(entity->cell == hshg_cell_sq_max) continue;
@@ -333,69 +343,7 @@ void hshg_collide(struct hshg* const hshg) {
       }
     }
   }
-  hshg->calling = 0;
-}
-
-void hshg_collide2(const struct hshg* const hshg, const struct hshg_entity_min* entities) {
-  for(hshg_entity_t i = 1; i < hshg->entities_used; ++i) {
-    const struct hshg_entity_min* const entity = entities + i;
-    if(entity->cell == hshg_cell_sq_max) continue;
-    const struct hshg_grid* grid = hshg->grids + entity->grid;
-    for(hshg_entity_t j = entity->next; j != 0;) {
-      const struct hshg_entity_min* const ent = entities + j;
-      hshg->collide(hshg, hshg->entities + i, hshg->entities + j);
-      j = ent->next;
-    }
-    hshg_cell_t cell_x = entity->cell & grid->cells_mask;
-    hshg_cell_t cell_y = entity->cell >> grid->cells_log;
-    if(cell_y != grid->cells_mask) {
-      const hshg_entity_t* const cell = grid->cells + (entity->cell + grid->cells_side);
-      if(cell_x != 0) {
-        for(hshg_entity_t j = *(cell - 1); j != 0;) {
-          const struct hshg_entity_min* const ent = entities + j;
-          hshg->collide(hshg, hshg->entities + i, hshg->entities + j);
-          j = ent->next;
-        }
-      }
-      for(hshg_entity_t j = *cell; j != 0;) {
-        const struct hshg_entity_min* const ent = entities + j;
-        hshg->collide(hshg, hshg->entities + i, hshg->entities + j);
-        j = ent->next;
-      }
-      if(cell_x != grid->cells_mask) {
-        for(hshg_entity_t j = *(cell + 1); j != 0;) {
-          const struct hshg_entity_min* const ent = entities + j;
-          hshg->collide(hshg, hshg->entities + i, hshg->entities + j);
-          j = ent->next;
-        }
-      }
-    }
-    if(cell_x != grid->cells_mask) {
-      for(hshg_entity_t j = grid->cells[entity->cell + 1]; j != 0;) {
-        const struct hshg_entity_min* const ent = entities + j;
-        hshg->collide(hshg, hshg->entities + i, hshg->entities + j);
-        j = ent->next;
-      }
-    }
-    for(uint8_t up_grid = entity->grid + 1; up_grid < hshg->grids_len; ++up_grid) {
-      ++grid;
-      cell_x >>= 1;
-      cell_y >>= 1;
-      const hshg_cell_t min_cell_x = cell_x != 0 ? cell_x - 1 : 0;
-      const hshg_cell_t min_cell_y = cell_y != 0 ? cell_y - 1 : 0;
-      const hshg_cell_t max_cell_x = cell_x != grid->cells_mask ? cell_x + 1 : cell_x;
-      const hshg_cell_t max_cell_y = cell_y != grid->cells_mask ? cell_y + 1 : cell_y;
-      for(hshg_cell_t cur_y = min_cell_y; cur_y <= max_cell_y; ++cur_y) {
-        for(hshg_cell_t cur_x = min_cell_x; cur_x <= max_cell_x; ++cur_x) {
-          for(hshg_entity_t j = grid->cells[grid_get_idx(grid, cur_x, cur_y)]; j != 0;) {
-            const struct hshg_entity_min* const ent = entities + j;
-            hshg->collide(hshg, hshg->entities + i, hshg->entities + j);
-            j = ent->next;
-          }
-        }
-      }
-    }
-  }
+  set_calling_to(hshg, 0);
 }
 
 int hshg_optimize(struct hshg* const hshg) {
@@ -447,7 +395,7 @@ int hshg_optimize(struct hshg* const hshg) {
   _a > _b ? _a : _b; \
 })
 
-void hshg_query(struct hshg* const hshg, const hshg_pos_t _x1, const hshg_pos_t _y1, const hshg_pos_t _x2, const hshg_pos_t _y2) {
+void hshg_query(MAYBE_CONST struct hshg* const hshg, const hshg_pos_t _x1, const hshg_pos_t _y1, const hshg_pos_t _x2, const hshg_pos_t _y2) {
   /* ^ +y
      -------------
      |      x2,y2|
@@ -458,8 +406,10 @@ void hshg_query(struct hshg* const hshg, const hshg_pos_t _x1, const hshg_pos_t 
   assert(_x1 <= _x2);
   assert(_y1 <= _y2);
   
+#ifndef HSHG_NDEBUG
   const uint8_t old_calling = hshg->calling;
-  hshg->calling = 1;
+#endif
+  set_calling_to(hshg, 1);
 
   const hshg_pos_t inverse_grid_size = 1.0f / hshg->grid_size;
 
@@ -569,8 +519,5 @@ void hshg_query(struct hshg* const hshg, const hshg_pos_t _x1, const hshg_pos_t 
     end_y >>= 1;
   }
 
-  hshg->calling = old_calling;
+  set_calling_to(hshg, old_calling);
 }
-
-#undef max
-#undef min

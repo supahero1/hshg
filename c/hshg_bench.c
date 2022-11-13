@@ -158,7 +158,6 @@ int main() {
   hshg.collide = collide;
   hshg.entities_size = AGENTS_NUM + 1;
   assert(!hshg_init(&hshg, CELLS_SIDE, CELL_SIZE));
-  //assert(!hshg_prealloc(&hshg, 999999.0));
 
   const uint64_t ins_time = get_time();
   for(hshg_entity_t i = 0; i < AGENTS_NUM; ++i) {
@@ -181,21 +180,9 @@ int main() {
       assert(!hshg_optimize(&hshg));
       balls_optimize(&hshg);
     }
-    // struct hshg_entity_min* min = malloc(sizeof(*min) * hshg.entities_used);
-    // assert(min);
-    // for(hshg_entity_t i = 1; i < hshg.entities_used; ++i) {
-    //   const struct hshg_entity* const ent = hshg.entities + i;
-    //   min[i] = (struct hshg_entity_min) {
-    //     .cell = ent->cell,
-    //     .grid = ent->grid,
-    //     .next = ent->next
-    //   };
-    // }
     const uint64_t col_time = get_time();
     hshg_collide(&hshg);
-    // hshg_collide2(&hshg, min);
     const uint64_t end_time = get_time();
-    // free(min);
 
     upd[i] = (double)(opt_time - upd_time) / 1000000.0;
     opt[i] = (double)(col_time - opt_time) / 1000000.0;

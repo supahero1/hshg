@@ -35,11 +35,19 @@
 #define hshg_pos_t     float
 #endif
 
-#define max_t(t) (((0x1ULL << ((sizeof(t) << 3ULL) - 1ULL)) - 1ULL) | (0xFULL << ((sizeof(t) << 3ULL) - 4ULL)))
+#define max_t(t) \
+  (((UINT64_C(0x1) << ((sizeof(t) << UINT64_C(3)) - UINT64_C(1))) - UINT64_C(1)) \
+  | (UINT64_C(0xF) << ((sizeof(t) << UINT64_C(3)) - UINT64_C(4))))
 
 #define hshg_entity_max  ((hshg_entity_t)  max_t(hshg_entity_t) )
 #define hshg_cell_max    ((hshg_cell_t)    max_t(hshg_cell_t)   )
 #define hshg_cell_sq_max ((hshg_cell_sq_t) max_t(hshg_cell_sq_t))
+
+#ifdef HSHG_NDEBUG
+#define MAYBE_CONST const
+#else
+#define MAYBE_CONST
+#endif
 
 struct hshg_entity {
   hshg_cell_sq_t cell;
@@ -76,7 +84,6 @@ struct hshg {
   hshg_collide_t collide;
   hshg_query_t query;
   
-  uint8_t cell_div_log;
   uint8_t cell_log;
   uint8_t grids_len;
   uint8_t calling;
@@ -107,18 +114,10 @@ extern void hshg_resize(const struct hshg* const);
 
 extern void hshg_update(struct hshg* const);
 
-extern void hshg_collide(struct hshg* const);
-
-struct hshg_entity_min {
-  hshg_cell_sq_t cell;
-  uint8_t grid;
-  hshg_entity_t next;
-};
-
-extern void hshg_collide2(const struct hshg* const, const struct hshg_entity_min*);
+extern void hshg_collide(MAYBE_CONST struct hshg* const);
 
 extern int  hshg_optimize(struct hshg* const);
 
-extern void hshg_query(struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
+extern void hshg_query(MAYBE_CONST struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
 
 #endif /* _hshg_h_ */
