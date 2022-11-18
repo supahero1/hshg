@@ -35,14 +35,6 @@
 #define hshg_pos_t     float
 #endif
 
-#define max_t(t) \
-  (((UINT64_C(0x1) << ((sizeof(t) << UINT64_C(3)) - UINT64_C(1))) - UINT64_C(1)) \
-  | (UINT64_C(0xF) << ((sizeof(t) << UINT64_C(3)) - UINT64_C(4))))
-
-#define hshg_entity_max  ((hshg_entity_t)  max_t(hshg_entity_t) )
-#define hshg_cell_max    ((hshg_cell_t)    max_t(hshg_cell_t)   )
-#define hshg_cell_sq_max ((hshg_cell_sq_t) max_t(hshg_cell_sq_t))
-
 #ifdef HSHG_NDEBUG
 #define MAYBE_CONST const
 #else
@@ -50,8 +42,8 @@
 #endif
 
 struct hshg_entity {
-  hshg_cell_sq_t cell;
-  uint8_t grid;
+  hshg_cell_sq_t rel_cell;
+  hshg_cell_sq_t abs_cell;
   hshg_entity_t next;
   hshg_entity_t prev;
   hshg_entity_t ref;
@@ -61,14 +53,15 @@ struct hshg_entity {
 };
 
 struct hshg_grid {
-  hshg_entity_t* cells;
-  
-  hshg_cell_t cells_side;
-  hshg_cell_t cells_mask;
-  uint8_t cells_log;
-  
-  uint32_t cell_size;
-  hshg_pos_t inverse_cell_size;
+  hshg_entity_t* const cells;
+  hshg_entity_t idx;
+
+  const hshg_cell_t cells_side;
+  const hshg_cell_t cells_mask;
+  const uint8_t cells_log;
+  const hshg_pos_t inverse_cell_size;
+
+  hshg_entity_t entities;
 };
 
 struct hshg;
@@ -78,31 +71,34 @@ typedef void (*hshg_query_t)(const struct hshg*, const struct hshg_entity*);
 
 struct hshg {
   struct hshg_entity* entities;
-  struct hshg_grid* grids;
-  
+  struct hshg_grid* const grids;
+
   hshg_update_t update;
   hshg_collide_t collide;
   hshg_query_t query;
   
-  uint8_t cell_log;
-  uint8_t grids_len;
+  const uint8_t cell_log;
+  const uint8_t grids_len;
   uint8_t calling;
   
-  hshg_cell_sq_t grid_size;
+  const hshg_cell_sq_t grid_size;
+  const hshg_pos_t inverse_grid_size;
+  const hshg_cell_sq_t cells_len;
+  const uint32_t cell_size;
 
   hshg_entity_t free_entity;
   hshg_entity_t entities_used;
   hshg_entity_t entities_size;
   hshg_entity_t entity_id;
+
+  hshg_entity_t cells[];
 };
 
-extern int  hshg_init(struct hshg* const, const hshg_cell_t, const uint32_t);
+extern struct hshg* hshg_create(const hshg_cell_t, const uint32_t);
 
 extern void hshg_free(struct hshg* const);
 
 extern int  hshg_set_size(struct hshg* const, const hshg_entity_t);
-
-extern int  hshg_prealloc(struct hshg* const, const hshg_pos_t);
 
 extern int  hshg_insert(struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_entity_t);
 

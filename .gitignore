@@ -2,4 +2,5 @@ js/node_modules
 js/package-lock.json
 
 c/hshg_bench
+c/hshg_bench.o
 c/libhshg.so
