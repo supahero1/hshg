@@ -9,9 +9,9 @@
 #include <inttypes.h>
 #include <stdatomic.h>
 
-#define AGENTS_NUM 500000
+#define AGENTS_NUM 600000
 
-#define CELLS_SIDE 2048
+#define CELLS_SIDE 4096
 #define AGENT_R 7
 #define CELL_SIZE 16
 #define ARENA_WIDTH (CELLS_SIDE * CELL_SIZE)
@@ -19,7 +19,7 @@
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 100
+#define LATENCY_NUM 200
 
 #define SINGLE_LAYER 1
 
@@ -84,22 +84,20 @@ uint64_t collisions = 0;
 void collide(const struct hshg* hshg, const struct hshg_entity* a, const struct hshg_entity* b) {
   (void) hshg;
   const float r = a->r + b->r;
-  // if(a->x + r >= b->x && a->x <= b->x + r && a->y + r >= b->y && a->y <= b->y + r) {
-    ++maybe_collisions;
-    const float xd = a->x - b->x;
-    const float yd = a->y - b->y;
-    const float d = xd * xd + yd * yd;
-    if(d <= r * r) {
-      ++collisions;
-      const float angle = atan2f(yd, xd);
-      const float c = cosf(angle);
-      const float s = sinf(angle);
-      balls[a->ref].vx += c;
-      balls[a->ref].vy += s;
-      balls[b->ref].vx -= c;
-      balls[b->ref].vy -= s;
-    }
-  // }
+  ++maybe_collisions;
+  const float xd = a->x - b->x;
+  const float yd = a->y - b->y;
+  const float d = xd * xd + yd * yd;
+  if(d <= r * r) {
+    ++collisions;
+    const float angle = atan2f(yd, xd);
+    const float c = cosf(angle);
+    const float s = sinf(angle);
+    balls[a->ref].vx += c;
+    balls[a->ref].vy += s;
+    balls[b->ref].vx -= c;
+    balls[b->ref].vy -= s;
+  }
 }
 
 
@@ -171,7 +169,7 @@ int main() {
   double opt[LATENCY_NUM];
   double col[LATENCY_NUM];
   int i = 0;
-  puts("--- | average |  sd  | +- 0.1ms | +- 0.3ms | +- 0.5ms | +- 1.0ms | col stats |");
+  puts("--- | average |  sd  | +- 0.1ms | +- 0.4ms | +- 0.7ms | +- 1.0ms | col stats |");
   while(1) {
     const uint64_t upd_time = get_time();
     hshg_update(hshg);
@@ -209,21 +207,21 @@ int main() {
       }
       upd_01 = upd_01 / LATENCY_NUM * 100;
 
-      double upd_03 = 0;
+      double upd_04 = 0;
       for(i = 0; i < LATENCY_NUM; ++i) {
-        if(upd[i] >= upd_avg - 0.3 && upd[i] <= upd_avg + 0.3) {
-          ++upd_03;
+        if(upd[i] >= upd_avg - 0.4 && upd[i] <= upd_avg + 0.4) {
+          ++upd_04;
         }
       }
-      upd_03 = upd_03 / LATENCY_NUM * 100;
+      upd_04 = upd_04 / LATENCY_NUM * 100;
 
-      double upd_05 = 0;
+      double upd_07 = 0;
       for(i = 0; i < LATENCY_NUM; ++i) {
-        if(upd[i] >= upd_avg - 0.5 && upd[i] <= upd_avg + 0.5) {
-          ++upd_05;
+        if(upd[i] >= upd_avg - 0.7 && upd[i] <= upd_avg + 0.7) {
+          ++upd_07;
         }
       }
-      upd_05 = upd_05 / LATENCY_NUM * 100;
+      upd_07 = upd_07 / LATENCY_NUM * 100;
 
       double upd_10 = 0;
       for(i = 0; i < LATENCY_NUM; ++i) {
@@ -234,13 +232,13 @@ int main() {
       upd_10 = upd_10 / LATENCY_NUM * 100;
 
       double opt_avg = 0;
-      for(int i = 0; i < LATENCY_NUM; ++i) {
+      for(i = 0; i < LATENCY_NUM; ++i) {
         opt_avg += opt[i];
       }
       opt_avg /= LATENCY_NUM;
       
       double col_avg = 0;
-      for(int i = 0; i < LATENCY_NUM; ++i) {
+      for(i = 0; i < LATENCY_NUM; ++i) {
         col_avg += col[i];
       }
       col_avg /= LATENCY_NUM;
@@ -259,21 +257,21 @@ int main() {
       }
       col_01 = col_01 / LATENCY_NUM * 100;
 
-      double col_03 = 0;
+      double col_04 = 0;
       for(i = 0; i < LATENCY_NUM; ++i) {
-        if(col[i] >= col_avg - 0.3 && col[i] <= col_avg + 0.3) {
-          ++col_03;
+        if(col[i] >= col_avg - 0.4 && col[i] <= col_avg + 0.4) {
+          ++col_04;
         }
       }
-      col_03 = col_03 / LATENCY_NUM * 100;
+      col_04 = col_04 / LATENCY_NUM * 100;
 
-      double col_05 = 0;
+      double col_07 = 0;
       for(i = 0; i < LATENCY_NUM; ++i) {
-        if(col[i] >= col_avg - 0.5 && col[i] <= col_avg + 0.5) {
-          ++col_05;
+        if(col[i] >= col_avg - 0.7 && col[i] <= col_avg + 0.7) {
+          ++col_07;
         }
       }
-      col_05 = col_05 / LATENCY_NUM * 100;
+      col_07 = col_07 / LATENCY_NUM * 100;
 
       double col_10 = 0;
       for(i = 0; i < LATENCY_NUM; ++i) {
@@ -292,16 +290,16 @@ int main() {
         upd_avg,
         upd_sd,
         upd_01,
-        upd_03,
-        upd_05,
+        upd_04,
+        upd_07,
         upd_10,
         opt_avg,
         maybe_collisions,
         col_avg,
         col_sd,
         col_01,
-        col_03,
-        col_05,
+        col_04,
+        col_07,
         col_10,
         upd_avg + opt_avg + col_avg,
         collisions

@@ -2,6 +2,10 @@
 build: hshg.c hshg.h
 	$(CC) hshg.c -shared -o libhshg.so -O3 -march=native
 
+.PHONY: prod_build
+prod_build: hshg.c hshg.h
+	$(CC) hshg.c -shared -o libhshg.so -O3 -march=native -DHSHG_NDEBUG
+
 .PHONY: install
 install: libhshg.so
 	install libhshg.so /usr/local/lib/ -m 775

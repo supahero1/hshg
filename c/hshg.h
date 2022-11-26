@@ -35,12 +35,6 @@
 #define hshg_pos_t     float
 #endif
 
-#ifdef HSHG_NDEBUG
-#define MAYBE_CONST const
-#else
-#define MAYBE_CONST
-#endif
-
 struct hshg_entity {
   hshg_cell_sq_t cell;
   uint8_t grid;
@@ -58,7 +52,7 @@ struct hshg_grid {
   const hshg_cell_t cells_side;
   const hshg_cell_t cells_mask;
   const uint8_t cells_log;
-  uint8_t dynamic_idx;
+  uint8_t cache_idx;
   uint8_t shift;
   const hshg_pos_t inverse_cell_size;
 
@@ -73,7 +67,7 @@ typedef void (*hshg_query_t)(const struct hshg*, const struct hshg_entity*);
 struct hshg {
   struct hshg_entity* entities;
   hshg_entity_t* const cells;
-  struct hshg_grid* const dynamic_grids;
+  struct hshg_grid* const grid_cache;
 
   hshg_update_t update;
   hshg_collide_t collide;
@@ -81,6 +75,7 @@ struct hshg {
   
   const uint8_t cell_log;
   const uint8_t grids_len;
+  uint8_t grid_cache_len;
 
   union {
     struct {
@@ -90,6 +85,9 @@ struct hshg {
     };
     uint8_t calling;
   };
+  uint8_t removed:1;
+
+  uint8_t stale_cache;
   
   const hshg_cell_sq_t grid_size;
   const hshg_pos_t inverse_grid_size;
@@ -120,10 +118,10 @@ extern void hshg_resize(struct hshg* const);
 
 extern void hshg_update(struct hshg* const);
 
-extern void hshg_collide(MAYBE_CONST struct hshg* const);
+extern void hshg_collide(struct hshg* const);
 
 extern int  hshg_optimize(struct hshg* const);
 
-extern void hshg_query(MAYBE_CONST struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
+extern void hshg_query(struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
 
 #endif /* _hshg_h_ */
