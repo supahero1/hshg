@@ -19,7 +19,7 @@
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 1000
+#define LATENCY_NUM 100
 
 #define SINGLE_LAYER 1
 
@@ -153,19 +153,19 @@ int main() {
     balls[i].vy = randf() * 1 - 0.5;
   }
 
-  struct hshg hshg = {0};
-  hshg.update = update;
-  hshg.collide = collide;
-  hshg.entities_size = AGENTS_NUM + 1;
-  assert(!hshg_init(&hshg, CELLS_SIDE, CELL_SIZE));
+  struct hshg* hshg = hshg_create(CELLS_SIDE, CELL_SIZE);
+  assert(hshg);
+  hshg->update = update;
+  hshg->collide = collide;
+  assert(!hshg_set_size(hshg, AGENTS_NUM + 1));
 
   const uint64_t ins_time = get_time();
   for(hshg_entity_t i = 0; i < AGENTS_NUM; ++i) {
-    hshg_insert(&hshg, init_data[i * 3 + 0], init_data[i * 3 + 1], init_data[i * 3 + 2], i);
+    hshg_insert(hshg, init_data[i * 3 + 0], init_data[i * 3 + 1], init_data[i * 3 + 2], i);
   }
   const uint64_t ins_end_time = get_time();
   free(init_data);
-  printf("took %" PRIu64 "ms to insert %d entities\n%" PRIu8 " grids\n\n", (ins_end_time - ins_time) / UINT64_C(1000000), AGENTS_NUM, hshg.grids_len);
+  printf("took %" PRIu64 "ms to insert %d entities\n%" PRIu8 " grids\n\n", (ins_end_time - ins_time) / UINT64_C(1000000), AGENTS_NUM, hshg->grids_len);
 
   double upd[LATENCY_NUM];
   double opt[LATENCY_NUM];
@@ -174,14 +174,14 @@ int main() {
   puts("--- | average |  sd  | +- 0.1ms | +- 0.3ms | +- 0.5ms | +- 1.0ms | col stats |");
   while(1) {
     const uint64_t upd_time = get_time();
-    hshg_update(&hshg);
+    hshg_update(hshg);
     const uint64_t opt_time = get_time();
     if(i % 32 == 0) {
-      assert(!hshg_optimize(&hshg));
-      balls_optimize(&hshg);
+      assert(!hshg_optimize(hshg));
+      balls_optimize(hshg);
     }
     const uint64_t col_time = get_time();
-    hshg_collide(&hshg);
+    hshg_collide(hshg);
     const uint64_t end_time = get_time();
 
     upd[i] = (double)(opt_time - upd_time) / 1000000.0;
@@ -317,7 +317,7 @@ int main() {
     }
   }
 
-  hshg_free(&hshg);
+  hshg_free(hshg);
 
   return EXIT_SUCCESS;
 }

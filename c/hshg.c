@@ -26,9 +26,9 @@
 #include <string.h>
 
 #ifdef HSHG_NDEBUG
-#define set_calling_to(hshg, to)
+#define hshg_set(prop, to)
 #else
-#define set_calling_to(hshg, to) ((hshg)->calling = (to))
+#define hshg_set(prop, to) (hshg-> prop = (to))
 #endif
 
 #ifdef __GNUC__
@@ -52,54 +52,35 @@ struct hshg* hshg_create(const hshg_cell_t side, const uint32_t size) {
   hshg_cell_sq_t cells_len = 0;
   hshg_cell_t _side = side;
   uint8_t grids_len = 0;
-  while(_side) {
+  do {
     const hshg_cell_sq_t new = cells_len + (hshg_cell_sq_t) _side * _side;
     assert(new > cells_len && "hshg_cell_sq_t must be set to a wider data type");
     cells_len = new;
     ++grids_len;
     _side >>= 1;
-  }
-  if(_side != 1) {
-    --grids_len;
-    --_side;
-  }
+  } while(_side >= 2);
 
-  struct hshg* const hshg = calloc(1, sizeof(*hshg) + sizeof(*hshg->cells) * cells_len);
+  struct hshg* const hshg = malloc(sizeof(*hshg) + sizeof(*hshg->grids) * grids_len);
   if(hshg == NULL) {
     goto err;
   }
 
-  struct hshg_grid* const grids = malloc(sizeof(*hshg->grids) * grids_len);
-  if(hshg->grids == NULL) {
+  hshg_entity_t* const cells = calloc(cells_len, sizeof(*cells));
+  if(cells == NULL) {
     goto err_hshg;
   }
 
-  hshg_entity_t idx = 0;
-  _side = side;
-  uint32_t _size = size;
-  for(uint8_t i = 0; i < grids_len; ++i) {
-    (void) memcpy(grids + i, &((struct hshg_grid) {
-      .cells = hshg->cells + idx,
-      .idx = idx,
-
-      .cells_side = _side,
-      .cells_mask = _side - 1,
-      .cells_log = __builtin_ctz(_side),
-      .inverse_cell_size = (hshg_pos_t) 1.0 / _size,
-
-      .entities = 0
-    }), sizeof(*grids));
-
-    idx += (hshg_cell_sq_t) _side * _side;
-    _side >>= 1;
-    _size <<= 1;
+  struct hshg_grid* const dynamic_grids = malloc(sizeof(*dynamic_grids) * grids_len);
+  if(dynamic_grids == NULL) {
+    goto err_cells;
   }
 
   const hshg_cell_sq_t grid_size = (hshg_cell_sq_t) side * size;
 
   (void) memcpy(hshg, &((struct hshg) {
     .entities = NULL,
-    .grids = grids,
+    .cells = cells,
+    .dynamic_grids = dynamic_grids,
 
     .update = NULL,
     .collide = NULL,
@@ -107,6 +88,7 @@ struct hshg* hshg_create(const hshg_cell_t side, const uint32_t size) {
 
     .cell_log = 31 - __builtin_ctz(size),
     .grids_len = grids_len,
+
     .calling = 0,
 
     .grid_size = grid_size,
@@ -120,8 +102,32 @@ struct hshg* hshg_create(const hshg_cell_t side, const uint32_t size) {
     .entity_id = 0
   }), sizeof(*hshg));
 
+  hshg_entity_t idx = 0;
+  _side = side;
+  uint32_t _size = size;
+  for(uint8_t i = 0; i < grids_len; ++i) {
+    (void) memcpy(hshg->grids + i, &((struct hshg_grid) {
+      .cells = hshg->cells + idx,
+
+      .cells_side = _side,
+      .cells_mask = _side - 1,
+      .cells_log = __builtin_ctz(_side),
+      .dynamic_idx = 0,
+      .shift = 0,
+      .inverse_cell_size = (hshg_pos_t) 1.0 / _size,
+
+      .entities_len = 0
+    }), sizeof(*hshg->grids));
+
+    idx += (hshg_cell_sq_t) _side * _side;
+    _side >>= 1;
+    _size <<= 1;
+  }
+
   return hshg;
 
+  err_cells:
+  free(cells);
   err_hshg:
   free(hshg);
   err:
@@ -130,11 +136,12 @@ struct hshg* hshg_create(const hshg_cell_t side, const uint32_t size) {
 
 void hshg_free(struct hshg* const hshg) {
   free(hshg->entities);
-  free(hshg->grids);
+  free(hshg->cells);
   free(hshg);
 }
 
 int hshg_set_size(struct hshg* const hshg, const hshg_entity_t size) {
+  assert(!hshg->calling && "hshg_set_size() may not be called from any callback");
   assert(size >= hshg->entities_used);
   void* const ptr = realloc(hshg->entities, sizeof(*hshg->entities) * size);
   if(ptr == NULL) {
@@ -163,7 +170,7 @@ static hshg_entity_t hshg_get_entity(struct hshg* const hshg) {
 
 static void hshg_return_entity(struct hshg* const hshg) {
   const hshg_entity_t idx = hshg->entity_id;
-  hshg->entities[idx].rel_cell = hshg_cell_sq_max;
+  hshg->entities[idx].cell = hshg_cell_sq_max;
   hshg->entities[idx].next = hshg->free_entity;
   hshg->free_entity = idx;
 }
@@ -197,21 +204,22 @@ static uint8_t hshg_get_grid(const struct hshg* const hshg, const hshg_pos_t r) 
   return hshg->cell_log - __builtin_clz(rounded) + 1;
 }
 
-static void hshg_reinsert(const struct hshg* const hshg, const hshg_entity_t idx) {
+static void hshg_reinsert(struct hshg* const hshg, const hshg_entity_t idx) {
   struct hshg_entity* const entity = hshg->entities + idx;
   struct hshg_grid* const grid = hshg->grids + entity->grid;
-  entity->rel_cell = grid_get_cell(grid, entity->x, entity->y);
-  entity->abs_cell = grid->idx + entity->rel_cell;
-  hshg_entity_t* const cell = hshg->cells + entity->abs_cell;
+  entity->cell = grid_get_cell(grid, entity->x, entity->y);
+  hshg_entity_t* const cell = grid->cells + entity->cell;
   entity->next = *cell;
   if(entity->next != 0) {
     hshg->entities[entity->next].prev = idx;
   }
   entity->prev = 0;
   *cell = idx;
+  ++grid->entities_len;
 }
 
 int hshg_insert(struct hshg* const hshg, const hshg_pos_t x, const hshg_pos_t y, const hshg_pos_t r, const hshg_entity_t ref) {
+  assert(!hshg->calling && "hshg_insert() may not be called from any callback");
   const hshg_entity_t idx = hshg_get_entity(hshg);
   if(idx == 0) {
     return -1;
@@ -226,36 +234,38 @@ int hshg_insert(struct hshg* const hshg, const hshg_pos_t x, const hshg_pos_t y,
   return 0;
 }
 
-static void hshg_remove_light(const struct hshg* const hshg) {
+static void hshg_remove_light(struct hshg* const hshg) {
   struct hshg_entity* const entity = hshg->entities + hshg->entity_id;
+  struct hshg_grid* const grid = hshg->grids + entity->grid;
   if(entity->prev == 0) {
-    hshg->cells[entity->abs_cell] = entity->next;
+    grid->cells[entity->cell] = entity->next;
   } else {
     hshg->entities[entity->prev].next = entity->next;
   }
   hshg->entities[entity->next].prev = entity->prev;
+  --grid->entities_len;
 }
 
 void hshg_remove(struct hshg* const hshg) {
-  assert(hshg->entity_id && "hshg_remove() may only be called from within hshg.update()");
+  assert(hshg->updating && "hshg_remove() may only be called from within hshg.update()");
   hshg_remove_light(hshg);
   hshg_return_entity(hshg);
 }
 
-void hshg_move(const struct hshg* const hshg) {
-  assert(hshg->entity_id && "hshg_move() may only be called from within hshg.update()");
+void hshg_move(struct hshg* const hshg) {
+  assert(hshg->updating && "hshg_move() may only be called from within hshg.update()");
   const hshg_entity_t idx = hshg->entity_id;
   struct hshg_entity* const entity = hshg->entities + idx;
   const struct hshg_grid* const grid = hshg->grids + entity->grid;
   const hshg_cell_sq_t cell = grid_get_cell(grid, entity->x, entity->y);
-  if(entity->rel_cell != cell) {
+  if(entity->cell != cell) {
     hshg_remove_light(hshg);
     hshg_reinsert(hshg, idx);
   }
 }
 
-void hshg_resize(const struct hshg* const hshg) {
-  assert(hshg->entity_id && "hshg_resize() may only be called from within hshg.update()");
+void hshg_resize(struct hshg* const hshg) {
+  assert(hshg->updating && "hshg_resize() may only be called from within hshg.update()");
   const hshg_entity_t idx = hshg->entity_id;
   struct hshg_entity* const entity = hshg->entities + idx;
   const uint8_t grid = hshg_get_grid(hshg, entity->r);
@@ -269,35 +279,51 @@ void hshg_resize(const struct hshg* const hshg) {
 
 void hshg_update(struct hshg* const hshg) {
   assert(hshg->update);
-  assert(!hshg->entity_id && "Nested updates are forbidden");
   assert(!hshg->calling && "hshg_update() may not be called from any callback");
-  set_calling_to(hshg, 1);
+  hshg_set(updating, 1);
+  struct hshg_entity* entity = hshg->entities;
   for(hshg->entity_id = 1; hshg->entity_id < hshg->entities_used; ++hshg->entity_id) {
-    struct hshg_entity* const entity = hshg->entities + hshg->entity_id;
-    if(entity->rel_cell == hshg_cell_sq_max) continue;
+    ++entity;
+    if(entity->cell == hshg_cell_sq_max) continue;
     hshg->update(hshg, entity);
   }
-  hshg->entity_id = 0;
-  set_calling_to(hshg, 0);
+  hshg_set(updating, 0);
 }
 
 void hshg_collide(MAYBE_CONST struct hshg* const hshg) {
   assert(hshg->collide);
   assert(!hshg->calling && "hshg_collide() may not be called from any callback");
-  set_calling_to(hshg, 1);
+  hshg_set(colliding, 1);
+  uint8_t dynamic_grid_idx = 0;
+  {
+    struct hshg_grid* dynamic_grid = hshg->dynamic_grids;
+    const struct hshg_grid* const grid_max = hshg->grids + hshg->grids_len;
+    uint8_t shift = 0;
+    for(struct hshg_grid* grid = hshg->grids; grid != grid_max; ++grid) {
+      ++shift;
+      if(grid->entities_len == 0) continue;
+      (void) memcpy(dynamic_grid, grid, sizeof(*grid));
+      dynamic_grid->shift = shift;
+      shift = 0;
+      grid->dynamic_idx = dynamic_grid_idx;
+      ++dynamic_grid_idx;
+      ++dynamic_grid;
+    }
+  }
+  const struct hshg_grid* const dynamic_grid_max = hshg->dynamic_grids + dynamic_grid_idx;
   for(hshg_entity_t i = 1; i < hshg->entities_used; ++i) {
     const struct hshg_entity* const entity = hshg->entities + i;
-    if(entity->rel_cell == hshg_cell_sq_max) continue;
+    if(entity->cell == hshg_cell_sq_max) continue;
     const struct hshg_grid* grid = hshg->grids + entity->grid;
     for(hshg_entity_t j = entity->next; j != 0;) {
       const struct hshg_entity* const ent = hshg->entities + j;
       hshg->collide(hshg, entity, ent);
       j = ent->next;
     }
-    hshg_cell_t cell_x = entity->rel_cell & grid->cells_mask;
-    hshg_cell_t cell_y = entity->rel_cell >> grid->cells_log;
+    hshg_cell_t cell_x = entity->cell & grid->cells_mask;
+    hshg_cell_t cell_y = entity->cell >> grid->cells_log;
     if(cell_y != grid->cells_mask) {
-      const hshg_entity_t* const cell = hshg->cells + (entity->abs_cell + grid->cells_side);
+      const hshg_entity_t* const cell = grid->cells + (entity->cell + grid->cells_side);
       if(cell_x != 0) {
         for(hshg_entity_t j = *(cell - 1); j != 0;) {
           const struct hshg_entity* const ent = hshg->entities + j;
@@ -319,23 +345,22 @@ void hshg_collide(MAYBE_CONST struct hshg* const hshg) {
       }
     }
     if(cell_x != grid->cells_mask) {
-      for(hshg_entity_t j = hshg->cells[entity->abs_cell + 1]; j != 0;) {
+      for(hshg_entity_t j = grid->cells[entity->cell + 1]; j != 0;) {
         const struct hshg_entity* const ent = hshg->entities + j;
         hshg->collide(hshg, entity, ent);
         j = ent->next;
       }
     }
-    for(uint8_t up_grid = entity->grid + 1; up_grid < hshg->grids_len; ++up_grid) {
-      ++grid;
-      cell_x >>= 1;
-      cell_y >>= 1;
+    for(const struct hshg_grid* dynamic_grid = hshg->dynamic_grids + grid->dynamic_idx + 1; dynamic_grid != dynamic_grid_max; ++dynamic_grid) {
+      cell_x >>= dynamic_grid->shift;
+      cell_y >>= dynamic_grid->shift;
       const hshg_cell_t min_cell_x = cell_x != 0 ? cell_x - 1 : 0;
       const hshg_cell_t min_cell_y = cell_y != 0 ? cell_y - 1 : 0;
-      const hshg_cell_t max_cell_x = cell_x != grid->cells_mask ? cell_x + 1 : cell_x;
-      const hshg_cell_t max_cell_y = cell_y != grid->cells_mask ? cell_y + 1 : cell_y;
+      const hshg_cell_t max_cell_x = cell_x != dynamic_grid->cells_mask ? cell_x + 1 : cell_x;
+      const hshg_cell_t max_cell_y = cell_y != dynamic_grid->cells_mask ? cell_y + 1 : cell_y;
       for(hshg_cell_t cur_y = min_cell_y; cur_y <= max_cell_y; ++cur_y) {
         for(hshg_cell_t cur_x = min_cell_x; cur_x <= max_cell_x; ++cur_x) {
-          for(hshg_entity_t j = grid->cells[grid_get_idx(grid, cur_x, cur_y)]; j != 0;) {
+          for(hshg_entity_t j = dynamic_grid->cells[grid_get_idx(dynamic_grid, cur_x, cur_y)]; j != 0;) {
             const struct hshg_entity* const ent = hshg->entities + j;
             hshg->collide(hshg, entity, ent);
             j = ent->next;
@@ -344,7 +369,7 @@ void hshg_collide(MAYBE_CONST struct hshg* const hshg) {
       }
     }
   }
-  set_calling_to(hshg, 0);
+  hshg_set(colliding, 0);
 }
 
 int hshg_optimize(struct hshg* const hshg) {
@@ -409,9 +434,9 @@ void hshg_query(MAYBE_CONST struct hshg* const hshg, const hshg_pos_t _x1, const
   assert(_y1 <= _y2);
   
 #ifndef HSHG_NDEBUG
-  const uint8_t old_calling = hshg->calling;
+  const uint8_t old_querying = hshg->querying;
 #endif
-  set_calling_to(hshg, 1);
+  hshg_set(querying, 1);
 
   hshg_pos_t x1;
   hshg_pos_t x2;
@@ -496,18 +521,20 @@ void hshg_query(MAYBE_CONST struct hshg* const hshg, const hshg_pos_t _x1, const
   const struct hshg_grid* grid = hshg->grids;
   uint8_t i = 0;
   while(1) {
-    const hshg_cell_t s_x = start_x != 0 ? start_x - 1 : 0;
-    const hshg_cell_t s_y = start_y != 0 ? start_y - 1 : 0;
-    const hshg_cell_t e_x = end_x != grid->cells_mask ? end_x + 1 : end_x;
-    const hshg_cell_t e_y = end_y != grid->cells_mask ? end_y + 1 : end_y;
-    for(hshg_cell_t y = s_y; y <= e_y; ++y) {
-      for(hshg_cell_t x = s_x; x <= e_x; ++x) {
-        for(hshg_entity_t j = grid->cells[grid_get_idx(grid, x, y)]; j != 0;) {
-          const struct hshg_entity* const entity = hshg->entities + j;
-          if(entity->x + entity->r >= _x1 && entity->x - entity->r <= _x2 && entity->y + entity->r >= _y1 && entity->y - entity->r <= _y2) {
-            hshg->query(hshg, entity);
+    if(grid->entities_len) {
+      const hshg_cell_t s_x = start_x != 0 ? start_x - 1 : 0;
+      const hshg_cell_t s_y = start_y != 0 ? start_y - 1 : 0;
+      const hshg_cell_t e_x = end_x != grid->cells_mask ? end_x + 1 : end_x;
+      const hshg_cell_t e_y = end_y != grid->cells_mask ? end_y + 1 : end_y;
+      for(hshg_cell_t y = s_y; y <= e_y; ++y) {
+        for(hshg_cell_t x = s_x; x <= e_x; ++x) {
+          for(hshg_entity_t j = grid->cells[grid_get_idx(grid, x, y)]; j != 0;) {
+            const struct hshg_entity* const entity = hshg->entities + j;
+            if(entity->x + entity->r >= _x1 && entity->x - entity->r <= _x2 && entity->y + entity->r >= _y1 && entity->y - entity->r <= _y2) {
+              hshg->query(hshg, entity);
+            }
+            j = entity->next;
           }
-          j = entity->next;
         }
       }
     }
@@ -519,5 +546,5 @@ void hshg_query(MAYBE_CONST struct hshg* const hshg, const hshg_pos_t _x1, const
     end_y >>= 1;
   }
 
-  set_calling_to(hshg, old_calling);
+  hshg_set(querying, old_querying);
 }

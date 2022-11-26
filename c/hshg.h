@@ -42,8 +42,8 @@
 #endif
 
 struct hshg_entity {
-  hshg_cell_sq_t rel_cell;
-  hshg_cell_sq_t abs_cell;
+  hshg_cell_sq_t cell;
+  uint8_t grid;
   hshg_entity_t next;
   hshg_entity_t prev;
   hshg_entity_t ref;
@@ -54,14 +54,15 @@ struct hshg_entity {
 
 struct hshg_grid {
   hshg_entity_t* const cells;
-  hshg_entity_t idx;
 
   const hshg_cell_t cells_side;
   const hshg_cell_t cells_mask;
   const uint8_t cells_log;
+  uint8_t dynamic_idx;
+  uint8_t shift;
   const hshg_pos_t inverse_cell_size;
 
-  hshg_entity_t entities;
+  hshg_entity_t entities_len;
 };
 
 struct hshg;
@@ -71,7 +72,8 @@ typedef void (*hshg_query_t)(const struct hshg*, const struct hshg_entity*);
 
 struct hshg {
   struct hshg_entity* entities;
-  struct hshg_grid* const grids;
+  hshg_entity_t* const cells;
+  struct hshg_grid* const dynamic_grids;
 
   hshg_update_t update;
   hshg_collide_t collide;
@@ -79,7 +81,15 @@ struct hshg {
   
   const uint8_t cell_log;
   const uint8_t grids_len;
-  uint8_t calling;
+
+  union {
+    struct {
+      uint8_t updating:1;
+      uint8_t colliding:1;
+      uint8_t querying:1;
+    };
+    uint8_t calling;
+  };
   
   const hshg_cell_sq_t grid_size;
   const hshg_pos_t inverse_grid_size;
@@ -91,7 +101,7 @@ struct hshg {
   hshg_entity_t entities_size;
   hshg_entity_t entity_id;
 
-  hshg_entity_t cells[];
+  struct hshg_grid grids[];
 };
 
 extern struct hshg* hshg_create(const hshg_cell_t, const uint32_t);
@@ -104,9 +114,9 @@ extern int  hshg_insert(struct hshg* const, const hshg_pos_t, const hshg_pos_t, 
 
 extern void hshg_remove(struct hshg* const);
 
-extern void hshg_move(const struct hshg* const);
+extern void hshg_move(struct hshg* const);
 
-extern void hshg_resize(const struct hshg* const);
+extern void hshg_resize(struct hshg* const);
 
 extern void hshg_update(struct hshg* const);
 
