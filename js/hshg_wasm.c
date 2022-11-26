@@ -199,126 +199,126 @@ EM_BOOL tick(double nil1, void* nil2) {
 
   if(i + 1 == LATENCY_NUM) {
     double upd_avg = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        upd_avg += upd[i];
-      }
-      upd_avg /= LATENCY_NUM;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      upd_avg += upd[i];
+    }
+    upd_avg /= LATENCY_NUM;
 
-      double upd_sd = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        upd_sd += (upd[i] - upd_avg) * (upd[i] - upd_avg);
-      }
-      upd_sd = sqrtf(upd_sd / LATENCY_NUM);
+    double upd_sd = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      upd_sd += (upd[i] - upd_avg) * (upd[i] - upd_avg);
+    }
+    upd_sd = sqrtf(upd_sd / LATENCY_NUM);
 
-      double upd_01 = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        if(upd[i] >= upd_avg - 0.1 && upd[i] <= upd_avg + 0.1) {
-          ++upd_01;
-        }
+    double upd_01 = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      if(upd[i] >= upd_avg - 0.1 && upd[i] <= upd_avg + 0.1) {
+        ++upd_01;
       }
-      upd_01 = upd_01 / LATENCY_NUM * 100;
+    }
+    upd_01 = upd_01 / LATENCY_NUM * 100;
 
-      double upd_03 = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        if(upd[i] >= upd_avg - 0.3 && upd[i] <= upd_avg + 0.3) {
-          ++upd_03;
-        }
+    double upd_03 = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      if(upd[i] >= upd_avg - 0.3 && upd[i] <= upd_avg + 0.3) {
+        ++upd_03;
       }
-      upd_03 = upd_03 / LATENCY_NUM * 100;
+    }
+    upd_03 = upd_03 / LATENCY_NUM * 100;
 
-      double upd_05 = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        if(upd[i] >= upd_avg - 0.5 && upd[i] <= upd_avg + 0.5) {
-          ++upd_05;
-        }
+    double upd_05 = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      if(upd[i] >= upd_avg - 0.5 && upd[i] <= upd_avg + 0.5) {
+        ++upd_05;
       }
-      upd_05 = upd_05 / LATENCY_NUM * 100;
+    }
+    upd_05 = upd_05 / LATENCY_NUM * 100;
 
-      double upd_10 = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        if(upd[i] >= upd_avg - 1.0 && upd[i] <= upd_avg + 1.0) {
-          ++upd_10;
-        }
+    double upd_10 = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      if(upd[i] >= upd_avg - 1.0 && upd[i] <= upd_avg + 1.0) {
+        ++upd_10;
       }
-      upd_10 = upd_10 / LATENCY_NUM * 100;
+    }
+    upd_10 = upd_10 / LATENCY_NUM * 100;
 
-      double opt_avg = 0;
-      for(int i = 0; i < LATENCY_NUM; ++i) {
-        opt_avg += opt[i];
-      }
-      opt_avg /= LATENCY_NUM;
+    double opt_avg = 0;
+    for(int i = 0; i < LATENCY_NUM; ++i) {
+      opt_avg += opt[i];
+    }
+    opt_avg /= LATENCY_NUM;
       
-      double col_avg = 0;
-      for(int i = 0; i < LATENCY_NUM; ++i) {
-        col_avg += col[i];
-      }
-      col_avg /= LATENCY_NUM;
+    double col_avg = 0;
+    for(int i = 0; i < LATENCY_NUM; ++i) {
+      col_avg += col[i];
+    }
+    col_avg /= LATENCY_NUM;
 
-      double col_sd = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        col_sd += (col[i] - col_avg) * (col[i] - col_avg);
-      }
-      col_sd = sqrtf(col_sd / LATENCY_NUM);
+    double col_sd = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      col_sd += (col[i] - col_avg) * (col[i] - col_avg);
+    }
+    col_sd = sqrtf(col_sd / LATENCY_NUM);
       
-      double col_01 = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        if(col[i] >= col_avg - 0.1 && col[i] <= col_avg + 0.1) {
-          ++col_01;
-        }
+    double col_01 = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      if(col[i] >= col_avg - 0.1 && col[i] <= col_avg + 0.1) {
+        ++col_01;
       }
-      col_01 = col_01 / LATENCY_NUM * 100;
+    }
+    col_01 = col_01 / LATENCY_NUM * 100;
 
-      double col_03 = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        if(col[i] >= col_avg - 0.3 && col[i] <= col_avg + 0.3) {
-          ++col_03;
-        }
+    double col_03 = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      if(col[i] >= col_avg - 0.3 && col[i] <= col_avg + 0.3) {
+        ++col_03;
       }
-      col_03 = col_03 / LATENCY_NUM * 100;
+    }
+    col_03 = col_03 / LATENCY_NUM * 100;
 
-      double col_05 = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        if(col[i] >= col_avg - 0.5 && col[i] <= col_avg + 0.5) {
-          ++col_05;
-        }
+    double col_05 = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      if(col[i] >= col_avg - 0.5 && col[i] <= col_avg + 0.5) {
+        ++col_05;
       }
-      col_05 = col_05 / LATENCY_NUM * 100;
+    }
+    col_05 = col_05 / LATENCY_NUM * 100;
 
-      double col_10 = 0;
-      for(i = 0; i < LATENCY_NUM; ++i) {
-        if(col[i] >= col_avg - 1.0 && col[i] <= col_avg + 1.0) {
-          ++col_10;
-        }
+    double col_10 = 0;
+    for(i = 0; i < LATENCY_NUM; ++i) {
+      if(col[i] >= col_avg - 1.0 && col[i] <= col_avg + 1.0) {
+        ++col_10;
       }
-      col_10 = col_10 / LATENCY_NUM * 100;
+    }
+    col_10 = col_10 / LATENCY_NUM * 100;
 
-      printf(
-        "------------------------------------------------------------------------------\n"
-        "upd | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | attempted |\n"
-        "opt | %5.2lfms | ---- | -------- | -------- | -------- | -------- | %9." PRIu64 " |\n"
-        "col | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | succeeded |\n"
-        "all | %5.2lfms | ---- | -------- | -------- | -------- | -------- | %9." PRIu64 " |\n",
-        upd_avg,
-        upd_sd,
-        upd_01,
-        upd_03,
-        upd_05,
-        upd_10,
-        opt_avg,
-        maybe_collisions,
-        col_avg,
-        col_sd,
-        col_01,
-        col_03,
-        col_05,
-        col_10,
-        upd_avg + opt_avg + col_avg,
-        collisions
-      );
+    printf(
+      "------------------------------------------------------------------------------\n"
+      "upd | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | attempted |\n"
+      "opt | %5.2lfms | ---- | -------- | -------- | -------- | -------- | %9." PRIu64 " |\n"
+      "col | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | succeeded |\n"
+      "all | %5.2lfms | ---- | -------- | -------- | -------- | -------- | %9." PRIu64 " |\n",
+      upd_avg,
+      upd_sd,
+      upd_01,
+      upd_03,
+      upd_05,
+      upd_10,
+      opt_avg,
+      maybe_collisions,
+      col_avg,
+      col_sd,
+      col_01,
+      col_03,
+      col_05,
+      col_10,
+      upd_avg + opt_avg + col_avg,
+      collisions
+    );
 
-      maybe_collisions = 0;
-      collisions = 0;
-      i = LATENCY_NUM - 1;
+    maybe_collisions = 0;
+    collisions = 0;
+    i = LATENCY_NUM - 1;
   }
   i = (i + 1) % LATENCY_NUM;
 
