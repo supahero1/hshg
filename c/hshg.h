@@ -87,7 +87,8 @@ struct hshg {
   };
   uint8_t removed:1;
 
-  uint8_t stale_cache;
+  uint32_t old_cache;
+  uint32_t new_cache;
   
   const hshg_cell_sq_t grid_size;
   const hshg_pos_t inverse_grid_size;

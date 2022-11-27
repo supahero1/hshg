@@ -37,6 +37,23 @@
 #define hshg_attribute(x)
 #endif
 
+#define min(a, b) ({ \
+  __typeof__ (a) _a = (a); \
+  __typeof__ (b) _b = (b); \
+  _a > _b ? _b : _a; \
+})
+
+#define max(a, b) ({ \
+  __typeof__ (a) _a = (a); \
+  __typeof__ (b) _b = (b); \
+  _a > _b ? _a : _b; \
+})
+
+struct hshg_map {
+  hshg_cell_t start;
+  hshg_cell_t end;
+};
+
 #define max_t(t) \
   (((UINT64_C(0x1) << ((sizeof(t) << UINT64_C(3)) - UINT64_C(1))) - UINT64_C(1)) \
   | (UINT64_C(0xF) << ((sizeof(t) << UINT64_C(3)) - UINT64_C(4))))
@@ -93,7 +110,8 @@ struct hshg* hshg_create(const hshg_cell_t side, const uint32_t size) {
     .calling = 0,
     .removed = 0,
 
-    .stale_cache = 0,
+    .old_cache = 0,
+    .new_cache = 0,
 
     .grid_size = grid_size,
     .inverse_grid_size = (hshg_pos_t) 1.0 / grid_size,
@@ -205,7 +223,7 @@ static uint8_t hshg_get_grid(const struct hshg* const hshg, const hshg_pos_t r) 
   if(rounded < hshg->cell_size) {
     return 0;
   }
-  return hshg->cell_log - __builtin_clz(rounded) + 1;
+  return max(hshg->cell_log - __builtin_clz(rounded) + 1, hshg->grids_len);
 }
 
 static void hshg_reinsert(struct hshg* const hshg, const hshg_entity_t idx) {
@@ -220,7 +238,7 @@ static void hshg_reinsert(struct hshg* const hshg, const hshg_entity_t idx) {
   entity->prev = 0;
   *cell = idx;
   if(grid->entities_len == 0) {
-    hshg->stale_cache = 1;
+    hshg->new_cache |= UINT32_C(1) << entity->grid;
   }
   ++grid->entities_len;
 }
@@ -252,7 +270,7 @@ static void hshg_remove_light(struct hshg* const hshg) {
   hshg->entities[entity->next].prev = entity->prev;
   --grid->entities_len;
   if(grid->entities_len == 0) {
-    hshg->stale_cache = 1;
+    hshg->new_cache &= ~(UINT32_C(1) << entity->grid);
   }
 }
 
@@ -302,8 +320,8 @@ void hshg_update(struct hshg* const hshg) {
 }
 
 static void hshg_update_cache(struct hshg* const hshg) {
-  if(!hshg->stale_cache) return;
-  hshg->stale_cache = 0;
+  if(hshg->old_cache == hshg->new_cache) return;
+  hshg->old_cache = hshg->new_cache;
   struct hshg_grid* cached_grid = hshg->grid_cache;
   const struct hshg_grid* const grid_max = hshg->grids + hshg->grids_len;
   uint8_t idx = 0;
@@ -330,9 +348,9 @@ void hshg_collide(struct hshg* const hshg) {
 
   hshg_update_cache(hshg);
   const struct hshg_grid* const grid_max = hshg->grid_cache + hshg->grid_cache_len;
+  const struct hshg_entity* const entity_max = hshg->entities + hshg->entities_used;
 
-  for(hshg_entity_t i = 1; i < hshg->entities_used; ++i) {
-    const struct hshg_entity* const entity = hshg->entities + i;
+  for(const struct hshg_entity* entity = hshg->entities + 1; entity != entity_max; ++entity) {
     if(entity->cell == hshg_cell_sq_max) continue;
     const struct hshg_grid* grid = hshg->grids + entity->grid;
     for(hshg_entity_t j = entity->next; j != 0;) {
@@ -430,23 +448,6 @@ int hshg_optimize(struct hshg* const hshg) {
   hshg->free_entity = 0;
   return 0;
 }
-
-#define min(a, b) ({ \
-  __typeof__ (a) _a = (a); \
-  __typeof__ (b) _b = (b); \
-  _a > _b ? _b : _a; \
-})
-
-#define max(a, b) ({ \
-  __typeof__ (a) _a = (a); \
-  __typeof__ (b) _b = (b); \
-  _a > _b ? _a : _b; \
-})
-
-struct hshg_map {
-  hshg_cell_t start;
-  hshg_cell_t end;
-};
 
 static struct hshg_map hshg_map_pos(const struct hshg* const hshg, const hshg_pos_t _x1, const hshg_pos_t _x2) {
   hshg_pos_t x1;

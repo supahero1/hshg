@@ -9,9 +9,9 @@
 #include <inttypes.h>
 #include <stdatomic.h>
 
-#define AGENTS_NUM 600000
+#define AGENTS_NUM 500000
 
-#define CELLS_SIDE 4096
+#define CELLS_SIDE 2048
 #define AGENT_R 7
 #define CELL_SIZE 16
 #define ARENA_WIDTH (CELLS_SIDE * CELL_SIZE)
