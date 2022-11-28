@@ -19,21 +19,10 @@
 
 #include <stdint.h>
 
-#ifndef hshg_entity_t
-#define hshg_entity_t  uint32_t
-#endif
-
-#ifndef hshg_cell_t
-#define hshg_cell_t    uint16_t
-#endif
-
-#ifndef hshg_cell_sq_t
-#define hshg_cell_sq_t uint32_t
-#endif
-
-#ifndef hshg_pos_t
-#define hshg_pos_t     float
-#endif
+typedef uint32_t hshg_entity_t;
+typedef uint16_t hshg_cell_t;
+typedef uint32_t hshg_cell_sq_t;
+typedef  float   hshg_pos_t;
 
 struct hshg_entity {
   hshg_cell_sq_t cell;

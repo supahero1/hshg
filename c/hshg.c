@@ -31,12 +31,6 @@
 #define hshg_set(prop, to) (hshg-> prop = (to))
 #endif
 
-#ifdef __GNUC__
-#define hshg_attribute(x) __attribute__(x)
-#else
-#define hshg_attribute(x)
-#endif
-
 #define min(a, b) ({ \
   __typeof__ (a) _a = (a); \
   __typeof__ (b) _b = (b); \
@@ -58,8 +52,11 @@ struct hshg_map {
   (((UINT64_C(0x1) << ((sizeof(t) << UINT64_C(3)) - UINT64_C(1))) - UINT64_C(1)) \
   | (UINT64_C(0xF) << ((sizeof(t) << UINT64_C(3)) - UINT64_C(4))))
 
+__attribute_maybe_unused__
 static const hshg_entity_t  hshg_entity_max  = max_t(hshg_entity_t );
+__attribute_maybe_unused__
 static const hshg_cell_t    hshg_cell_max    = max_t(hshg_cell_t   );
+__attribute_maybe_unused__
 static const hshg_cell_sq_t hshg_cell_sq_max = max_t(hshg_cell_sq_t);
 
 struct hshg* hshg_create(const hshg_cell_t side, const uint32_t size) {
@@ -174,6 +171,14 @@ int hshg_set_size(struct hshg* const hshg, const hshg_entity_t size) {
   return 0;
 }
 
+static void invalidate_entity(struct hshg_entity* const entity) {
+  entity->cell = hshg_cell_sq_max;
+}
+
+static int invalid_entity(const struct hshg_entity* const entity) {
+  return entity->cell == hshg_cell_sq_max;
+}
+
 static hshg_entity_t hshg_get_entity(struct hshg* const hshg) {
   if(hshg->free_entity != 0) {
     const hshg_entity_t ret = hshg->free_entity;
@@ -192,12 +197,13 @@ static hshg_entity_t hshg_get_entity(struct hshg* const hshg) {
 
 static void hshg_return_entity(struct hshg* const hshg) {
   const hshg_entity_t idx = hshg->entity_id;
-  hshg->entities[idx].cell = hshg_cell_sq_max;
-  hshg->entities[idx].next = hshg->free_entity;
+  struct hshg_entity* const ent = hshg->entities + idx;
+  invalidate_entity(ent);
+  ent->next = hshg->free_entity;
   hshg->free_entity = idx;
 }
 
-hshg_attribute((const))
+__attribute_const__
 static hshg_cell_t grid_get_cell_(const struct hshg_grid* const grid, const hshg_pos_t x) {
   const hshg_cell_t cell = fabsf(x) * grid->inverse_cell_size;
   if(cell & grid->cells_side) {
@@ -207,23 +213,33 @@ static hshg_cell_t grid_get_cell_(const struct hshg_grid* const grid, const hshg
   }
 }
 
-hshg_attribute((const))
+__attribute_const__
 static hshg_cell_sq_t grid_get_idx(const struct hshg_grid* const grid, const hshg_cell_sq_t x, const hshg_cell_sq_t y) {
   return x | (y << grid->cells_log);
 }
 
-hshg_attribute((const))
+__attribute_const__
+static hshg_cell_t idx_get_x(const struct hshg_grid* const grid, const hshg_cell_sq_t cell) {
+  return cell & grid->cells_mask;
+}
+
+__attribute_const__
+static hshg_cell_t idx_get_y(const struct hshg_grid* const grid, const hshg_cell_sq_t cell) {
+  return cell >> grid->cells_log;
+}
+
+__attribute_const__
 static hshg_cell_sq_t grid_get_cell(const struct hshg_grid* const grid, const hshg_pos_t x, const hshg_pos_t y) {
   return grid_get_idx(grid, grid_get_cell_(grid, x), grid_get_cell_(grid, y));
 }
 
-hshg_attribute((const))
+__attribute_const__
 static uint8_t hshg_get_grid(const struct hshg* const hshg, const hshg_pos_t r) {
   const uint32_t rounded = r + r;
   if(rounded < hshg->cell_size) {
     return 0;
   }
-  return max(hshg->cell_log - __builtin_clz(rounded) + 1, hshg->grids_len);
+  return min(hshg->cell_log - __builtin_clz(rounded) + 1, hshg->grids_len);
 }
 
 static void hshg_reinsert(struct hshg* const hshg, const hshg_entity_t idx) {
@@ -286,8 +302,7 @@ void hshg_move(struct hshg* const hshg) {
   const hshg_entity_t idx = hshg->entity_id;
   struct hshg_entity* const entity = hshg->entities + idx;
   const struct hshg_grid* const grid = hshg->grids + entity->grid;
-  const hshg_cell_sq_t cell = grid_get_cell(grid, entity->x, entity->y);
-  if(entity->cell != cell) {
+  if(entity->cell != grid_get_cell(grid, entity->x, entity->y)) {
     hshg_remove_light(hshg);
     hshg_reinsert(hshg, idx);
   }
@@ -312,7 +327,7 @@ void hshg_update(struct hshg* const hshg) {
   struct hshg_entity* entity = hshg->entities;
   for(hshg->entity_id = 1; hshg->entity_id < hshg->entities_used; ++hshg->entity_id) {
     ++entity;
-    if(entity->cell == hshg_cell_sq_max) continue;
+    if(invalid_entity(entity)) continue;
     hshg->update(hshg, entity);
   }
   hshg_set(removed, 0);
@@ -351,15 +366,15 @@ void hshg_collide(struct hshg* const hshg) {
   const struct hshg_entity* const entity_max = hshg->entities + hshg->entities_used;
 
   for(const struct hshg_entity* entity = hshg->entities + 1; entity != entity_max; ++entity) {
-    if(entity->cell == hshg_cell_sq_max) continue;
+    if(invalid_entity(entity)) continue;
     const struct hshg_grid* grid = hshg->grids + entity->grid;
     for(hshg_entity_t j = entity->next; j != 0;) {
       const struct hshg_entity* const ent = hshg->entities + j;
       hshg->collide(hshg, entity, ent);
       j = ent->next;
     }
-    hshg_cell_t cell_x = entity->cell & grid->cells_mask;
-    hshg_cell_t cell_y = entity->cell >> grid->cells_log;
+    hshg_cell_t cell_x = idx_get_x(grid, entity->cell);
+    hshg_cell_t cell_y = idx_get_y(grid, entity->cell);
     if(cell_y != grid->cells_mask) {
       const hshg_entity_t* const cell = grid->cells + (entity->cell + grid->cells_side);
       if(cell_x != 0) {
