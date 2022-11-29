@@ -24,94 +24,130 @@ typedef uint16_t hshg_cell_t;
 typedef uint32_t hshg_cell_sq_t;
 typedef  float   hshg_pos_t;
 
-struct hshg_entity {
-  hshg_cell_sq_t cell;
-  uint8_t grid;
-  hshg_entity_t next;
-  hshg_entity_t prev;
-  hshg_entity_t ref;
-  hshg_pos_t x;
-  hshg_pos_t y;
-  hshg_pos_t r;
+struct hshg_entity
+{
+    hshg_cell_sq_t cell;
+    uint8_t grid;
+    hshg_entity_t next;
+    hshg_entity_t prev;
+    hshg_entity_t ref;
+    hshg_pos_t x;
+    hshg_pos_t y;
+    hshg_pos_t r;
 };
 
-struct hshg_grid {
-  hshg_entity_t* const cells;
+struct hshg_grid
+{
+    hshg_entity_t* const cells;
 
-  const hshg_cell_t cells_side;
-  const hshg_cell_t cells_mask;
-  const uint8_t cells_log;
-  uint8_t cache_idx;
-  uint8_t shift;
-  const hshg_pos_t inverse_cell_size;
+    const hshg_cell_t cells_side;
+    const hshg_cell_t cells_mask;
+    const uint8_t cells_log;
+    uint8_t cache_idx;
+    uint8_t shift;
+    const hshg_pos_t inverse_cell_size;
 
-  hshg_entity_t entities_len;
+    hshg_entity_t entities_len;
 };
 
 struct hshg;
+
 typedef void (*hshg_update_t)(struct hshg*, struct hshg_entity*);
-typedef void (*hshg_collide_t)(const struct hshg*, const struct hshg_entity*, const struct hshg_entity*);
+
+typedef void (*hshg_const_update_t)(const struct hshg*, struct hshg_entity*);
+
+typedef void (*hshg_collide_t)(const struct hshg*,
+    const struct hshg_entity*, const struct hshg_entity*);
+
 typedef void (*hshg_query_t)(const struct hshg*, const struct hshg_entity*);
 
-struct hshg {
-  struct hshg_entity* entities;
-  hshg_entity_t* const cells;
-  struct hshg_grid* const grid_cache;
+struct hshg
+{
+    struct hshg_entity* entities;
+    hshg_entity_t* const cells;
+    struct hshg_grid* const grid_cache;
 
-  hshg_update_t update;
-  hshg_collide_t collide;
-  hshg_query_t query;
-  
-  const uint8_t cell_log;
-  const uint8_t grids_len;
-  uint8_t grid_cache_len;
+    hshg_update_t update;
+    hshg_const_update_t const_update;
+    hshg_collide_t collide;
+    hshg_query_t query;
+    
+    const uint8_t cell_log;
+    const uint8_t grids_len;
+    uint8_t grid_cache_len;
 
-  union {
-    struct {
-      uint8_t updating:1;
-      uint8_t colliding:1;
-      uint8_t querying:1;
+    union
+    {
+        struct
+        {
+            uint8_t updating:1;
+            uint8_t colliding:1;
+            uint8_t querying:1;
+        };
+        uint8_t calling;
     };
-    uint8_t calling;
-  };
-  uint8_t removed:1;
+    uint8_t removed:1;
 
-  uint32_t old_cache;
-  uint32_t new_cache;
-  
-  const hshg_cell_sq_t grid_size;
-  const hshg_pos_t inverse_grid_size;
-  const hshg_cell_sq_t cells_len;
-  const uint32_t cell_size;
+    uint32_t old_cache;
+    uint32_t new_cache;
+    
+    const hshg_cell_sq_t grid_size;
+    const hshg_pos_t inverse_grid_size;
+    const hshg_cell_sq_t cells_len;
+    const uint32_t cell_size;
 
-  hshg_entity_t free_entity;
-  hshg_entity_t entities_used;
-  hshg_entity_t entities_size;
-  hshg_entity_t entity_id;
+    hshg_entity_t free_entity;
+    hshg_entity_t entities_used;
+    hshg_entity_t entities_size;
+    hshg_entity_t entity_id;
 
-  struct hshg_grid grids[];
+    struct hshg_grid grids[];
 };
 
-extern struct hshg* hshg_create(const hshg_cell_t, const uint32_t);
+extern struct hshg*
+hshg_create(const hshg_cell_t, const uint32_t);
 
-extern void hshg_free(struct hshg* const);
+extern void
+hshg_free(struct hshg* const);
 
-extern int  hshg_set_size(struct hshg* const, const hshg_entity_t);
+extern int
+hshg_set_size(struct hshg* const, const hshg_entity_t);
 
-extern int  hshg_insert(struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_entity_t);
+extern int
+hshg_insert(struct hshg* const, const hshg_pos_t,
+    const hshg_pos_t, const hshg_pos_t, const hshg_entity_t);
 
-extern void hshg_remove(struct hshg* const);
+extern void
+hshg_remove(struct hshg* const);
 
-extern void hshg_move(struct hshg* const);
+extern void
+hshg_move(struct hshg* const);
 
-extern void hshg_resize(struct hshg* const);
+extern void
+hshg_resize(struct hshg* const);
 
-extern void hshg_update(struct hshg* const);
+extern void
+hshg_update(struct hshg* const);
 
-extern void hshg_collide(struct hshg* const);
+extern void
+hshg_update_multithread(const struct hshg* const,
+    const uint8_t, const uint8_t);
 
-extern int  hshg_optimize(struct hshg* const);
+extern void
+hshg_update_cache(struct hshg* const);
 
-extern void hshg_query(struct hshg* const, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
+extern void
+hshg_collide(struct hshg* const);
+
+extern int
+hshg_optimize(struct hshg* const);
+
+extern void
+hshg_query(struct hshg* const, const hshg_pos_t,
+    const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
+
+extern void
+hshg_query_multithread(const struct hshg* const, const hshg_pos_t,
+    const hshg_pos_t, const hshg_pos_t, const hshg_pos_t);
 
 #endif /* _hshg_h_ */
