@@ -492,36 +492,31 @@ hshg_update(struct hshg* const hshg)
     hshg_set(updating, 0);
 }
 
-// void
-// hshg_update_multithread(const struct hshg* const hshg,
-//     const uint8_t threads, const uint8_t idx)
-// {
-//     assert(hshg->const_update);
+void
+hshg_update_multithread(const struct hshg* const hshg,
+    const uint8_t threads, const uint8_t idx)
+{
+    assert(hshg->const_update);
 
-//     const hshg_entity_t used = hshg->entities_used - 1;
-//     const hshg_entity_t div = used / threads;
-//     const hshg_entity_t start = div * idx;
-//     const hshg_entity_t end = div + (idx + 1 == threads ? (used % threads) : 0);
+    const hshg_entity_t used = hshg->entities_used - 1;
+    const hshg_entity_t div = used / threads;
+    const hshg_entity_t start = div * idx + 1;
+    const hshg_entity_t end =
+        div + (idx + 1 == threads ? (used % threads) : 0) + 1;
 
-//     struct hshg_entity* entity = hshg->entities;
+    struct hshg_entity* entity;
+    struct hshg_entity* const entity_max = hshg->entities + end;
 
-// #define i hshg->entity_id
+    for(entity = hshg->entities + start; entity != entity_max; ++entity)
+    {
+        if(invalid_entity(entity))
+        {
+            continue;
+        }
 
-//     for(i = 1; i < hshg->entities_used; ++i)
-//     {
-//         ++entity;
-
-//         if(invalid_entity(entity))
-//         {
-//             continue;
-//         }
-
-//         hshg->const_update(hshg, entity);
-//     }
-
-// #undef i
-
-// }
+        hshg->const_update(hshg, entity);
+    }
+}
 
 void
 hshg_update_cache(struct hshg* const hshg)
@@ -597,7 +592,6 @@ do                                          \
         hshg->collide(hshg, entity, ent);   \
                                             \
         i = entity->next;                   \
-                                            \
     }                                       \
 }                                           \
 while(0)

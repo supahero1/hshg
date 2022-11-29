@@ -28,7 +28,7 @@
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 200
+#define LATENCY_NUM 1
 
 #define SINGLE_LAYER 1
 
@@ -73,7 +73,7 @@ void update(struct hshg* hshg, struct hshg_entity* a) {
     --ball->vx;
   }
   ball->vx *= 0.997;
-  
+
   a->y += ball->vy;
   if(a->y < a->r) {
     ball->vy *= 0.9;
@@ -83,7 +83,7 @@ void update(struct hshg* hshg, struct hshg_entity* a) {
     --ball->vy;
   }
   ball->vy *= 0.997;
-  
+
   hshg_move(hshg);
 }
 
@@ -182,13 +182,18 @@ int main() {
   while(1) {
     const uint64_t upd_time = get_time();
     hshg_update(hshg);
+    puts("updated");
     const uint64_t opt_time = get_time();
     if(i % 32 == 0) {
+      puts("optimizing");
       assert(!hshg_optimize(hshg));
+      puts("optimized 1");
       balls_optimize(hshg);
+      puts("optimized 2");
     }
     const uint64_t col_time = get_time();
     hshg_collide(hshg);
+    puts("collided");
     const uint64_t end_time = get_time();
 
     upd[i] = (double)(opt_time - upd_time) / 1000000.0;
@@ -245,7 +250,7 @@ int main() {
         opt_avg += opt[i];
       }
       opt_avg /= LATENCY_NUM;
-      
+
       double col_avg = 0;
       for(i = 0; i < LATENCY_NUM; ++i) {
         col_avg += col[i];
@@ -257,7 +262,7 @@ int main() {
         col_sd += (col[i] - col_avg) * (col[i] - col_avg);
       }
       col_sd = sqrtf(col_sd / LATENCY_NUM);
-      
+
       double col_01 = 0;
       for(i = 0; i < LATENCY_NUM; ++i) {
         if(col[i] >= col_avg - 0.1 && col[i] <= col_avg + 0.1) {
