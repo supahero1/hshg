@@ -1,19 +1,30 @@
+P_FLAGS = -O3 -march=native -Wall
+D_FLAGS = -g3 -Og -march=native -Wall
+
+COMP = $(CC) hshg.c
+
 .PHONY: build
 build: hshg.c hshg.h
-	$(CC) hshg.c -shared -o libhshg.so -O3 -march=native -Wall
+	$(COMP) -shared -o libhshg.so $(P_FLAGS)
 
 .PHONY: prod_build
 prod_build: hshg.c hshg.h
-	$(CC) hshg.c -shared -o libhshg.so -O3 -march=native -Wall -DHSHG_NDEBUG
+	$(COMP) -shared -o libhshg.so $(P_FLAGS) -DHSHG_NDEBUG
+
+.PHONY: test
+test: hshg.c hshg.h bench.c
+	$(CC) test.c -o test $(D_FLAGS) && ./test && \
+	$(CC) test.c -o test $(P_FLAGS) && ./test
 
 .PHONY: bench
-bench: hshg.c hshg.h hshg_bench.c
-	$(CC) hshg.c hshg_bench.c -o hshg_bench -O3 -march=native -Wall -flto -lm && ./hshg_bench
+bench: hshg.c hshg.h bench.c
+	$(CC) bench.c -o bench $(P_FLAGS) -lm && ./bench
 
 .PHONY: callgrind
-callgrind: hshg.c hshg.h hshg_bench.c
-	$(CC) hshg.c hshg_bench.c -o hshg_bench -g3 -Og -march=native -Wall -DBENCH_LITE -lm && \
-	set -m; ./run.sh; \
+callgrind: hshg.c hshg.h bench.c
+	$(CC) bench.c -o bench $(D_FLAGS) -DBENCH_LITE -lm && \
+	set -m; \
+	./run.sh
 	kcachegrind
 
 .PHONY: install

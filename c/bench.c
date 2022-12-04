@@ -1,4 +1,8 @@
+#define HSHG_D 2
+#define HSHG_UNIFORM
+
 #include "hshg.h"
+#include "hshg.c"
 
 #include <math.h>
 #include <time.h>
@@ -28,7 +32,7 @@
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 1
+#define LATENCY_NUM 100
 
 #define SINGLE_LAYER 1
 
@@ -168,7 +172,7 @@ int main() {
 
   const uint64_t ins_time = get_time();
   for(hshg_entity_t i = 0; i < AGENTS_NUM; ++i) {
-    hshg_insert(hshg, init_data[i * 3 + 0], init_data[i * 3 + 1], init_data[i * 3 + 2], i);
+    assert(!hshg_insert(hshg, init_data[i * 3 + 0], init_data[i * 3 + 1], init_data[i * 3 + 2], i));
   }
   const uint64_t ins_end_time = get_time();
   free(init_data);
@@ -182,18 +186,13 @@ int main() {
   while(1) {
     const uint64_t upd_time = get_time();
     hshg_update(hshg);
-    puts("updated");
     const uint64_t opt_time = get_time();
     if(i % 32 == 0) {
-      puts("optimizing");
       assert(!hshg_optimize(hshg));
-      puts("optimized 1");
       balls_optimize(hshg);
-      puts("optimized 2");
     }
     const uint64_t col_time = get_time();
     hshg_collide(hshg);
-    puts("collided");
     const uint64_t end_time = get_time();
 
     upd[i] = (double)(opt_time - upd_time) / 1000000.0;
