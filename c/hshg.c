@@ -20,7 +20,12 @@
 #define NDEBUG
 #endif
 
-#include <stdlib.h>
+#include <stddef.h>
+
+extern void* malloc(size_t);
+extern void  free(void*);
+extern void* calloc(size_t, size_t);
+extern void* realloc(void*, size_t);
 
 extern float fabsf(float);
 extern void* memcpy(void*, const void*, size_t);
@@ -57,13 +62,13 @@ struct hshg_map
     |((t)0xF << ((sizeof(t) << 3) - 4))         \
 )
 
-__attribute_maybe_unused__
+hshg_attrib_unused
 static const _hshg_entity_t  _hshg_entity_max  = max_t(_hshg_entity_t );
 
-__attribute_maybe_unused__
+hshg_attrib_unused
 static const _hshg_cell_t    _hshg_cell_max    = max_t(_hshg_cell_t   );
 
-__attribute_maybe_unused__
+hshg_attrib_unused
 static const _hshg_cell_sq_t _hshg_cell_sq_max = max_t(_hshg_cell_sq_t);
 
 
@@ -96,21 +101,21 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
     while(_side >= 2);
 
     _hshg* const hshg =
-        malloc(sizeof(*hshg) + sizeof(*hshg->grids) * grids_len);
+        malloc(sizeof(_hshg) + sizeof(_hshg_grid) * grids_len);
 
     if(hshg == NULL)
     {
         goto err;
     }
 
-    _hshg_entity_t* const cells = calloc(cells_len, sizeof(*cells));
+    _hshg_entity_t* const cells = calloc(cells_len, sizeof(_hshg_entity_t));
 
     if(cells == NULL)
     {
         goto err_hshg;
     }
 
-    _hshg_grid* const grid_cache = malloc(sizeof(*grid_cache) * grids_len);
+    _hshg_grid* const grid_cache = malloc(sizeof(_hshg_grid) * grids_len);
 
     if(grid_cache == NULL)
     {
@@ -150,7 +155,7 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
         .entities_size = 1,
         .entity_id = 0
     }
-    ), sizeof(*hshg));
+    ), sizeof(_hshg));
 
     _hshg_entity_t idx = 0;
     uint32_t _size = size;
@@ -177,7 +182,7 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
 
             .entities_len = 0
         }
-        ), sizeof(*hshg->grids));
+        ), sizeof(_hshg_grid));
 
         idx += (_hshg_cell_sq_t) _side * _side;
         _side >>= 1;
@@ -213,7 +218,7 @@ _hshg_set_size(_hshg* const hshg, const _hshg_entity_t size)
         "hshg_set_size() may not be called from any callback");
     assert(size >= hshg->entities_used);
 
-    void* const ptr = realloc(hshg->entities, sizeof(*hshg->entities) * size);
+    void* const ptr = realloc(hshg->entities, sizeof(_hshg_entity) * size);
 
     if(ptr == NULL)
     {
@@ -282,7 +287,7 @@ hshg_return_entity(_hshg* const hshg)
 }
 
 
-__attribute_const__
+hshg_attrib_const
 static _hshg_cell_t
 grid_get_cell_1d(const _hshg_grid* const grid, const _hshg_pos_t x)
 {
@@ -299,7 +304,7 @@ grid_get_cell_1d(const _hshg_grid* const grid, const _hshg_pos_t x)
 }
 
 
-__attribute_const__
+hshg_attrib_const
 static _hshg_cell_sq_t
 grid_get_idx(const _hshg_grid* const grid
             , const _hshg_cell_sq_t x
@@ -314,7 +319,7 @@ grid_get_idx(const _hshg_grid* const grid
 }
 
 
-__attribute_const__
+hshg_attrib_const
 static _hshg_cell_t
 idx_get_x(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 {
@@ -324,7 +329,7 @@ idx_get_x(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 
 HSHG_2D(
 
-__attribute_const__
+hshg_attrib_const
 static _hshg_cell_t
 idx_get_y(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 {
@@ -336,7 +341,7 @@ idx_get_y(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 
 HSHG_3D(
 
-__attribute_const__
+hshg_attrib_const
 static _hshg_cell_t
 idx_get_z(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 {
@@ -346,7 +351,7 @@ idx_get_z(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 )
 
 
-__attribute_const__
+hshg_attrib_const
 static _hshg_cell_sq_t
 grid_get_cell(const _hshg_grid* const grid
             , const _hshg_pos_t x
@@ -366,7 +371,7 @@ grid_get_cell(const _hshg_grid* const grid
 }
 
 
-__attribute_const__
+hshg_attrib_const
 static uint8_t
 hshg_get_grid(const _hshg* const hshg, const _hshg_pos_t r)
 {
@@ -619,7 +624,7 @@ _hshg_update_cache(_hshg* const hshg)
             continue;
         }
 
-        (void) memcpy(cached_grid, grid, sizeof(*grid));
+        (void) memcpy(cached_grid, grid, sizeof(_hshg_grid));
 
         cached_grid->shift = shift;
         shift = 1;
@@ -790,7 +795,7 @@ _hshg_optimize(_hshg* const hshg)
         "hshg_optimize() may not be called from any callback");
 
     _hshg_entity* const entities =
-        malloc(sizeof(*hshg->entities) * hshg->entities_size);
+        malloc(sizeof(_hshg_entity) * hshg->entities_size);
 
     if(entities == NULL)
     {

@@ -17,12 +17,24 @@
 #ifndef _hshg_h_
 #define _hshg_h_ 1
 
+#ifndef HSHG_NDEBUG
+
 #include <assert.h>
 
 static_assert(__STDC_VERSION__ >= 201112L);
 
-#include <stdint.h>
+#else
 
+#define assert(...)
+
+#endif
+
+
+#define hshg_attrib_const __attribute__((const))
+#define hshg_attrib_unused __attribute__((unused))
+
+
+#include <stdint.h>
 
 
 #ifndef HSHG_D
