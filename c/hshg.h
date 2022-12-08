@@ -17,6 +17,10 @@
 #ifndef _hshg_h_
 #define _hshg_h_ 1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef HSHG_NDEBUG
 
 #include <assert.h>
@@ -34,6 +38,7 @@ static_assert(__STDC_VERSION__ >= 201112L);
 #define hshg_attrib_unused __attribute__((unused))
 
 
+#include <stddef.h>
 #include <stdint.h>
 
 
@@ -56,11 +61,12 @@ static_assert(__STDC_VERSION__ >= 201112L);
 #endif
 
 #ifdef HSHG_UNIFORM
-#undef HSHG_D
-#define HSHG_D
+#define HSHG_NAME(name) HSHG_CAT(hshg_, name)
+#define HSHG_MAIN_NAME() hshg
+#else
+#define HSHG_NAME(name) HSHG_CAT(HSHG_CAT(hshg, HSHG_D), HSHG_CAT(d_, name))
+#define HSHG_MAIN_NAME() HSHG_CAT(hshg, HSHG_D)
 #endif
-
-#define HSHG_NAME(name) HSHG_CAT(HSHG_CAT(hshg, HSHG_D), HSHG_CAT(_, name))
 
 
 
@@ -169,22 +175,21 @@ typedef struct __hshg_entity __hshg_entity_t _hshg_entity;
 
 
 
-#define __hshg_grid_t               \
-{                                   \
-    _hshg_entity_t* cells;          \
-                                    \
-    _hshg_cell_t cells_side;        \
-    _hshg_cell_t cells_mask;        \
-                                    \
-    HSHG_2D(uint8_t cells2d_log;)   \
-    HSHG_3D(uint8_t cells3d_log;)   \
-                                    \
-    uint8_t cache_idx;              \
-    uint8_t shift;                  \
-                                    \
-    _hshg_pos_t inverse_cell_size;  \
-                                    \
-    _hshg_entity_t entities_len;    \
+#define __hshg_grid_t                       \
+{                                           \
+    _hshg_entity_t* const cells;            \
+                                            \
+    const _hshg_cell_t cells_side;          \
+    const _hshg_cell_t cells_mask;          \
+                                            \
+    HSHG_2D(const uint8_t cells2d_log;)     \
+    HSHG_3D(const uint8_t cells3d_log;)     \
+                                            \
+    uint8_t shift;                          \
+                                            \
+    const _hshg_pos_t inverse_cell_size;    \
+                                            \
+    _hshg_entity_t entities_len;            \
 }
 
 #define __hshg_grid HSHG_NAME(grid)
@@ -195,7 +200,7 @@ typedef struct __hshg_grid __hshg_grid_t _hshg_grid;
 
 
 
-#define __hshg HSHG_CAT(hshg, HSHG_D)
+#define __hshg HSHG_MAIN_NAME()
 
 typedef struct __hshg _hshg;
 
@@ -250,7 +255,6 @@ typedef __hshg_query_t _hshg_query_t;
 {                                           \
     _hshg_entity* entities;                 \
     _hshg_entity_t* const cells;            \
-    _hshg_grid* const grid_cache;           \
                                             \
     _hshg_update_t update;                  \
     _hshg_const_update_t const_update;      \
@@ -259,7 +263,6 @@ typedef __hshg_query_t _hshg_query_t;
                                             \
     const uint8_t cell_log;                 \
     const uint8_t grids_len;                \
-    uint8_t grid_cache_len;                 \
                                             \
     union                                   \
     {                                       \
@@ -312,6 +315,29 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size);
 
 extern void
 _hshg_free(_hshg* const);
+
+
+
+/**
+ * Returns the maximum amount of memory a HSHG with given parameters will use,
+ * NOT including the usage of `hshg_optimize()`. If you also need to take that
+ * function into consideration, double the maximum number of entities you pass
+ * to this function.
+ *
+ * The number of entities you pass must include the zero entity as well, so
+ * per one full array of entities you need to add 1. If you want to also
+ * reserve memory for hshg_optimize(), then you need to both double the
+ * amount of memory for entities and for the extra spot, resulting in +2.
+ *
+ * \param side the number of cells on the smallest grid's edge
+ * \param entities_max the maximum number of entities that will ever be
+ * inserted
+ */
+#define _hshg_memory_usage HSHG_NAME(memory_usage)
+
+extern size_t
+_hshg_memory_usage(const _hshg_cell_t side,
+    const _hshg_entity_t entities_max);
 
 
 
@@ -425,6 +451,11 @@ _hshg_query_multithread(const _hshg* const
     HSHG_3D(, const _hshg_pos_t max_z)
 );
 
+
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif /* _hshg_h_ */

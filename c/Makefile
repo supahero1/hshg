@@ -1,5 +1,5 @@
 P_FLAGS = -O3 -march=native -Wall
-D_FLAGS = -g3 -Og -march=native -Wall
+D_FLAGS = -g3 -Og -Wall
 
 COMP = $(CC) hshg.c
 
@@ -12,13 +12,23 @@ prod_build: hshg.c hshg.h
 	$(COMP) -shared -o libhshg.so $(P_FLAGS) -DHSHG_NDEBUG
 
 .PHONY: test
-test: hshg.c hshg.h bench.c
-	$(CC) test.c -o test $(D_FLAGS) && ./test && \
-	$(CC) test.c -o test $(P_FLAGS) && ./test
+test: hshg.c hshg.h test_1d.c test_2d.c
+	# @echo "1d Og"
+	# $(CC) test_1d.c -o test_1d $(D_FLAGS)
+	# ./test_1d
+	# @echo "1d O3"
+	# $(CC) test_1d.c -o test_1d $(P_FLAGS)
+	# ./test_1d
+	@echo "2d Og"
+	$(CC) test_2d.c -o test_2d $(D_FLAGS)
+	./test_2d
+	@echo "2d O3"
+	$(CC) test_2d.c -o test_2d $(P_FLAGS)
+	./test_2d
 
-.PHONY: bench
-bench: hshg.c hshg.h bench.c
-	$(CC) bench.c -o bench $(P_FLAGS) -lm && ./bench
+.PHONY: bench_2d
+bench_2d: hshg.c hshg.h bench_2d.c
+	$(CC) bench_2d.c -o bench_2d $(P_FLAGS) -lm && ./bench_2d
 
 .PHONY: callgrind
 callgrind: hshg.c hshg.h bench.c

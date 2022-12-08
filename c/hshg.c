@@ -20,8 +20,6 @@
 #define NDEBUG
 #endif
 
-#include <stddef.h>
-
 extern void* malloc(size_t);
 extern void  free(void*);
 extern void* calloc(size_t, size_t);
@@ -50,12 +48,6 @@ extern void* memcpy(void*, const void*, size_t);
     _a > _b ? _a : _b;          \
 })
 
-struct hshg_map
-{
-    _hshg_cell_t start;
-    _hshg_cell_t end;
-};
-
 #define max_t(t)                                \
 (                                               \
     (((t)0x1 << ((sizeof(t) << 3) - 1)) - 1)    \
@@ -71,6 +63,51 @@ static const _hshg_cell_t    _hshg_cell_max    = max_t(_hshg_cell_t   );
 hshg_attrib_unused
 static const _hshg_cell_sq_t _hshg_cell_sq_max = max_t(_hshg_cell_sq_t);
 
+#undef max_t
+
+
+hshg_attrib_const
+static uint8_t
+hshg_max_grids(_hshg_cell_t side)
+{
+    uint8_t grids_len = 0;
+
+    do
+    {
+        ++grids_len;
+        side >>= 1;
+    }
+    while(side >= 2);
+
+    return grids_len;
+}
+
+
+hshg_attrib_const
+static hshg_cell_sq_t
+hshg_max_cells(_hshg_cell_t side)
+{
+    _hshg_cell_sq_t cells_len = 0;
+
+    do
+    {
+        const _hshg_cell_sq_t new = cells_len +
+            (_hshg_cell_sq_t) side
+                    HSHG_2D(* side)
+                    HSHG_3D(* side)
+        ;
+
+        assert(new > cells_len &&
+            "_hshg_cell_sq_t must be set to a wider data type");
+
+        cells_len = new;
+        side >>= 1;
+    }
+    while(side >= 2);
+
+    return cells_len;
+}
+
 
 _hshg*
 _hshg_create(const _hshg_cell_t side, const uint32_t size)
@@ -80,25 +117,8 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
     assert(__builtin_popcount(size) == 1 &&
         "Both arguments must be powers of 2");
 
-    _hshg_cell_sq_t cells_len = 0;
-    _hshg_cell_t _side = side;
-    uint8_t grids_len = 0;
-
-    do
-    {
-        const _hshg_cell_sq_t new = cells_len + (_hshg_cell_sq_t) _side
-        HSHG_2D(* _side)
-        HSHG_3D(* _side)
-        ;
-
-        assert(new > cells_len &&
-            "_hshg_cell_sq_t must be set to a wider data type");
-
-        cells_len = new;
-        ++grids_len;
-        _side >>= 1;
-    }
-    while(_side >= 2);
+    const _hshg_cell_sq_t cells_len = hshg_max_cells(side);
+    const uint8_t grids_len = hshg_max_grids(side);
 
     _hshg* const hshg =
         malloc(sizeof(_hshg) + sizeof(_hshg_grid) * grids_len);
@@ -115,13 +135,6 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
         goto err_hshg;
     }
 
-    _hshg_grid* const grid_cache = malloc(sizeof(_hshg_grid) * grids_len);
-
-    if(grid_cache == NULL)
-    {
-        goto err_cells;
-    }
-
     const _hshg_cell_sq_t grid_size = (_hshg_cell_sq_t) side * size;
 
     (void) memcpy(hshg, &(
@@ -129,7 +142,6 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
     {
         .entities = NULL,
         .cells = cells,
-        .grid_cache = grid_cache,
 
         .update = NULL,
         .collide = NULL,
@@ -137,7 +149,6 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
 
         .cell_log = 31 - __builtin_ctz(size),
         .grids_len = grids_len,
-        .grid_cache_len = 0,
 
         .calling = 0,
         .removed = 0,
@@ -160,7 +171,7 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
     _hshg_entity_t idx = 0;
     uint32_t _size = size;
 
-    _side = side;
+    _hshg_cell_t _side = side;
 
     for(uint8_t i = 0; i < grids_len; ++i)
     {
@@ -175,7 +186,6 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
             HSHG_2D(.cells2d_log = __builtin_ctz(_side) << 0,)
             HSHG_3D(.cells3d_log = __builtin_ctz(_side) << 1,)
 
-            .cache_idx = 0,
             .shift = 0,
 
             .inverse_cell_size = (_hshg_pos_t) 1.0 / _size,
@@ -184,15 +194,16 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
         }
         ), sizeof(_hshg_grid));
 
-        idx += (_hshg_cell_sq_t) _side * _side;
+        idx +=
+        (_hshg_cell_sq_t) _side
+                HSHG_2D(* _side)
+                HSHG_3D(* _side)
+        ;
         _side >>= 1;
         _size <<= 1;
     }
 
     return hshg;
-
-    err_cells:
-    free(cells);
 
     err_hshg:
     free(hshg);
@@ -208,6 +219,19 @@ _hshg_free(_hshg* const hshg)
     free(hshg->entities);
     free(hshg->cells);
     free(hshg);
+}
+
+
+hshg_attrib_const
+size_t
+_hshg_memory_usage(const _hshg_cell_t side,
+    const _hshg_entity_t max_entities)
+{
+    const size_t entities = sizeof(_hshg_entity) * (max_entities + 1);
+    const size_t cells = sizeof(_hshg_entity_t) * hshg_max_cells(side);
+    const size_t grids = sizeof(_hshg_grid) * hshg_max_grids(side);
+    const size_t hshg = sizeof(_hshg);
+    return entities + cells + grids + hshg;
 }
 
 
@@ -608,33 +632,48 @@ _hshg_update_cache(_hshg* const hshg)
 
     hshg->old_cache = hshg->new_cache;
 
-    _hshg_grid* grid;
-    _hshg_grid* cached_grid = hshg->grid_cache;
+    _hshg_grid* old_grid;
     const _hshg_grid* const grid_max = hshg->grids + hshg->grids_len;
 
-    uint8_t idx = 0;
-    uint8_t shift = 0;
-
-    for(grid = hshg->grids; grid != grid_max; ++grid)
+    for(old_grid = hshg->grids; old_grid != grid_max; ++old_grid)
     {
-        if(grid->entities_len == 0)
+        old_grid->shift = 0;
+    }
+
+    old_grid = hshg->grids;
+
+    while(1)
+    {
+        if(old_grid == grid_max)
+        {
+            return;
+        }
+
+        if(old_grid->entities_len != 0)
+        {
+            break;
+        }
+
+        ++old_grid;
+    }
+
+    _hshg_grid* new_grid;
+
+    uint8_t shift = 1;
+
+    for(new_grid = old_grid + 1; new_grid != grid_max; ++new_grid)
+    {
+        if(new_grid->entities_len == 0)
         {
             ++shift;
 
             continue;
         }
 
-        (void) memcpy(cached_grid, grid, sizeof(_hshg_grid));
-
-        cached_grid->shift = shift;
+        old_grid->shift = shift;
+        old_grid = new_grid;
         shift = 1;
-        grid->cache_idx = idx;
-
-        ++idx;
-        ++cached_grid;
     }
-
-    hshg->grid_cache_len = idx;
 }
 
 
@@ -648,10 +687,6 @@ _hshg_collide(_hshg* const hshg)
     hshg_set(colliding, 1);
 
     _hshg_update_cache(hshg);
-
-    const _hshg_grid* grid;
-    const _hshg_grid* const grid_max =
-        hshg->grid_cache + hshg->grid_cache_len;
 
     const _hshg_entity* entity;
     const _hshg_entity* const entity_max =
@@ -684,7 +719,7 @@ while(0)
             continue;
         }
 
-        grid = hshg->grids + entity->grid;
+        const _hshg_grid* grid = hshg->grids + entity->grid;
 
                 _hshg_cell_t cell_x = idx_get_x(grid, entity->cell);
         HSHG_2D(_hshg_cell_t cell_y = idx_get_y(grid, entity->cell);)
@@ -719,13 +754,14 @@ while(0)
             loop_over(grid->cells[entity->cell + 1]);
         }
 
-        grid = hshg->grid_cache + grid->cache_idx + 1;
-
-        while(grid != grid_max)
+        while(grid->shift)
         {
                     cell_x >>= grid->shift;
             HSHG_2D(cell_y >>= grid->shift;)
             HSHG_3D(cell_z >>= grid->shift;)
+
+
+            grid += grid->shift;
 
 
                     const _hshg_cell_t min_cell_x =
@@ -752,14 +788,10 @@ while(0)
             HSHG_2D(_hshg_cell_t cur_y;)
             HSHG_3D(_hshg_cell_t cur_z;)
 
-            HSHG_3D(
-            for(cur_z = min_cell_z; cur_z <= max_cell_z; ++cur_z)
-            )
+            HSHG_3D(for(cur_z = min_cell_z; cur_z <= max_cell_z; ++cur_z))
             {
 
-            HSHG_2D(
-            for(cur_y = min_cell_y; cur_y <= max_cell_y; ++cur_y)
-            )
+            HSHG_2D(for(cur_y = min_cell_y; cur_y <= max_cell_y; ++cur_y))
             {
 
             for(cur_x = min_cell_x; cur_x <= max_cell_x; ++cur_x)
@@ -853,8 +885,8 @@ _hshg_optimize(_hshg* const hshg)
 }
 
 
-static struct hshg_map
-hshg_map_pos(const _hshg* const hshg,
+static void
+hshg_map_pos(const _hshg* const hshg, _hshg_cell_t* const ret,
     const _hshg_pos_t _x1, const _hshg_pos_t _x2)
 {
     _hshg_pos_t x1;
@@ -923,12 +955,8 @@ hshg_map_pos(const _hshg* const hshg,
     }
     }
 
-    return
-    (struct hshg_map)
-    {
-        .start = start,
-        .end = end
-    };
+    *(ret + 0) = start;
+    *(ret + 1) = end;
 }
 
 
@@ -948,24 +976,36 @@ hshg_query_common(const _hshg* const hshg
     HSHG_2D(assert(y1 <= y2);)
     HSHG_3D(assert(z1 <= z2);)
 
-            struct hshg_map x = hshg_map_pos(hshg, x1, x2);
-    HSHG_2D(struct hshg_map y = hshg_map_pos(hshg, y1, y2);)
-    HSHG_3D(struct hshg_map z = hshg_map_pos(hshg, z1, z2);)
-
-    const _hshg_grid* grid;
-    const _hshg_grid* const grid_max =
-        hshg->grid_cache + hshg->grid_cache_len;
-
-    for(grid = hshg->grid_cache; grid != grid_max; ++grid)
+    struct
     {
-                x.start >>= grid->shift;
-        HSHG_2D(y.start >>= grid->shift;)
-        HSHG_3D(z.start >>= grid->shift;)
+        _hshg_cell_t start;
+        _hshg_cell_t end;
+    } x HSHG_2D(, y) HSHG_3D(, z);
 
-                x.end >>= grid->shift;
-        HSHG_2D(y.end >>= grid->shift;)
-        HSHG_3D(z.end >>= grid->shift;)
+            hshg_map_pos(hshg, &x.start, x1, x2);
+    HSHG_2D(hshg_map_pos(hshg, &y.start, y1, y2);)
+    HSHG_3D(hshg_map_pos(hshg, &z.start, z1, z2);)
 
+    const _hshg_grid* grid = hshg->grids;
+    const _hshg_grid* const grid_max = hshg->grids + hshg->grids_len;
+
+    while(1)
+    {
+        if(grid == grid_max)
+        {
+            return;
+        }
+
+        if(grid->entities_len != 0)
+        {
+            break;
+        }
+
+        ++grid;
+    }
+
+    while(1)
+    {
                 const _hshg_cell_t s_x = x.start != 0 ? x.start - 1 : 0;
         HSHG_2D(const _hshg_cell_t s_y = y.start != 0 ? y.start - 1 : 0;)
         HSHG_3D(const _hshg_cell_t s_z = z.start != 0 ? z.start - 1 : 0;)
@@ -977,14 +1017,10 @@ hshg_query_common(const _hshg* const hshg
         HSHG_3D(const _hshg_cell_t e_z =
                     z.end != grid->cells_mask ? z.end + 1 : z.end;)
 
-        HSHG_3D(
-        for(_hshg_cell_t z = s_z; z <= e_z; ++z)
-        )
+        HSHG_3D(for(_hshg_cell_t z = s_z; z <= e_z; ++z))
         {
 
-        HSHG_2D(
-        for(_hshg_cell_t y = s_y; y <= e_y; ++y)
-        )
+        HSHG_2D(for(_hshg_cell_t y = s_y; y <= e_y; ++y))
         {
 
         for(_hshg_cell_t x = s_x; x <= e_x; ++x)
@@ -1023,6 +1059,23 @@ hshg_query_common(const _hshg* const hshg
 
         }
 
+        }
+
+        if(grid->shift)
+        {
+                    x.start >>= grid->shift;
+            HSHG_2D(y.start >>= grid->shift;)
+            HSHG_3D(z.start >>= grid->shift;)
+
+                    x.end >>= grid->shift;
+            HSHG_2D(y.end >>= grid->shift;)
+            HSHG_3D(z.end >>= grid->shift;)
+
+            grid += grid->shift;
+        }
+        else
+        {
+            break;
         }
     }
 }

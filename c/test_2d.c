@@ -1,7 +1,5 @@
 #define HSHG_D 2
 #define HSHG_UNIFORM
-
-#include "hshg.h"
 #include "hshg.c"
 
 #include <stdio.h>
@@ -62,7 +60,7 @@ insert(hshg_pos_t x, hshg_pos_t y, hshg_pos_t r)
 
 int col_num;
 
-#define unused __attribute_maybe_unused__
+#define unused __attribute__((unused))
 
 
 void

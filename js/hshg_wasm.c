@@ -1,3 +1,5 @@
+#define HSHG_D 2
+#define HSHG_UNIFORM
 #include "hshg.h"
 
 #include <math.h>
@@ -87,7 +89,7 @@ void update(struct hshg* hshg, struct hshg_entity* a) {
 #else
   ball->vx *= 0.98;
 #endif
-  
+
   a->y += ball->vy;
   if(a->y < a->r) {
     ball->vy *= 0.9;
@@ -247,7 +249,7 @@ EM_BOOL tick(double nil1, void* nil2) {
       opt_avg += opt[i];
     }
     opt_avg /= LATENCY_NUM;
-      
+
     double col_avg = 0;
     for(int i = 0; i < LATENCY_NUM; ++i) {
       col_avg += col[i];
@@ -259,7 +261,7 @@ EM_BOOL tick(double nil1, void* nil2) {
       col_sd += (col[i] - col_avg) * (col[i] - col_avg);
     }
     col_sd = sqrtf(col_sd / LATENCY_NUM);
-      
+
     double col_01 = 0;
     for(i = 0; i < LATENCY_NUM; ++i) {
       if(col[i] >= col_avg - 0.1 && col[i] <= col_avg + 0.1) {
