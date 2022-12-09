@@ -227,7 +227,7 @@ size_t
 _hshg_memory_usage(const _hshg_cell_t side,
     const _hshg_entity_t max_entities)
 {
-    const size_t entities = sizeof(_hshg_entity) * (max_entities + 1);
+    const size_t entities = sizeof(_hshg_entity) * max_entities;
     const size_t cells = sizeof(_hshg_entity_t) * hshg_max_cells(side);
     const size_t grids = sizeof(_hshg_grid) * hshg_max_grids(side);
     const size_t hshg = sizeof(_hshg);
