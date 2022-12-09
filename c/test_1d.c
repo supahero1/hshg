@@ -280,14 +280,18 @@ while(0)
 #define sqrt_7 2.646
 
 
-int
-main()
+void
+test(const hshg_cell_t side, const uint32_t size)
 {
-    hshg = hshg_create(8, 4);
+    obj_count = 0;
+    _obj_count = 0;
+    free_obj = NUM_OBJ;
+    cols = 0;
+
+
+    hshg = hshg_create(side, size);
 
     assert(hshg);
-
-    assert_eq(hshg->grids_len, 3);
 
     hshg->collide = coll;
 
@@ -333,7 +337,7 @@ main()
 
     cols += 2;
 
-    assert_col();//assert expected 6 but got 8
+    assert_col();
 
     check_count(((int[]){ 1, 3, 3, 3, 2 }));
 
@@ -427,141 +431,141 @@ main()
     }
 
 
-    // set(((struct dis){ 13, 17, 5 }), ((struct dis){ 13, 17, 2 }));
+    set(((struct dis){ 17, sqrt_5 }), ((struct dis){ 17, 0.5 }));
 
-    // cols -= 3;
+    cols -= 3;
 
-    // assert_col();
+    assert_col();
 
-    // check_count(((int[]){ 2, 2, 2, 1, 2, 1, 1, 1 }));
+    check_count(((int[]){ 1, 3, 2, 1, 2, 1, 1, 1 }));
 
 
-    // set(((struct dis){ 15, 15, 0.125 }), ((struct dis){ 18, 16, 0.125 }));
+    set(((struct dis){ 15, 0.125 }), ((struct dis){ 17, 0.125 }));
 
-    // cols += 1;
+    cols += 1;
 
-    // assert_col();
+    assert_col();
 
-    // check_count(((int[]){ 1, 3, 3, 1, 2, 1, 2, 1 }));
+    check_count(((int[]){ 0, 4, 2, 2, 2, 1, 2, 1 }));
 
 
-    // set(((struct dis){ 18, 16, 0.125 }), ((struct dis){ 18, 16, 0.375 }));
+    set(((struct dis){ 17, 0.125 }), ((struct dis){ 17, 1 }));
 
-    // cols += 1;
+    cols += 1;
 
-    // assert_col();
+    assert_col();
 
-    // check_count(((int[]){ 1, 3, 3, 1, 3, 1, 3, 1 }));
+    check_count(((int[]){ 1, 4, 2, 2, 2, 1, 3, 1 }));
 
 
-    // set(((struct dis){ 18, 16, 0.375 }), ((struct dis){ .del = 1 }));
+    set(((struct dis){ 17, 1 }), ((struct dis){ .del = 1 }));
 
-    // insert(0, 16, 3);
+    insert(8, 8);
 
-    // cols -= 2;
+    assert_col();
 
-    // assert_col();
+    check_count(((int[]){ 1, 3, 2, 1, 2, 2, 3, 2 }));
 
-    // check_count(((int[]){ 1, 2, 2, 1, 2, 1, 1, 2 }));
+    reset();
 
-    // reset();
+    hshg_update(hshg);
 
-    // hshg_update(hshg);
+    check_count(((int[]){ 1, 1, 1, 1, 1, 1, 1, 1 }));
 
-    // check_count(((int[]){ 1, 1, 1, 1, 1, 1, 1, 1 }));
 
+    assert(!hshg_optimize(hshg));
 
-    // assert(!hshg_optimize(hshg));
+    assert_col();
 
-    // assert_col();
+    check_count(((int[]){ 1, 3, 2, 1, 2, 2, 3, 2 }));
 
-    // check_count(((int[]){ 1, 2, 2, 1, 2, 1, 1, 2 }));
+    reset();
 
-    // reset();
+    hshg_update(hshg);
 
-    // hshg_update(hshg);
+    check_count(((int[]){ 1, 1, 1, 1, 1, 1, 1, 1 }));
 
-    // check_count(((int[]){ 1, 1, 1, 1, 1, 1, 1, 1 }));
 
+    query(0, 0, 3);
 
-    // query(10, 16, 16, 20, 4); /* 3 are in, but 4th's hitbox matches too */
+    query(1.01, 13.99, 1);
 
-    // query(24, 12, 24, 12, 2);
+    query(16.01, 16.01, 0);
 
-    // query(8, 12, 8, 12, 2); /* 0 are in */
+    query(19.6, 19.6, 3);
 
-    // query(15.1, 17, 15.1, 17, 1); /* 0 are in */
+    query(-100, -2, 1);
 
-    // query(3, 16, 3, 16, 3); /* 2 are in */
+    query(2, 19, 5);
 
 
-    // set(((struct dis){ 1000, -1000, 1413 }), ((struct dis){ .del = 1 }));
+    set(((struct dis){ 15, 1 }), ((struct dis){ .del = 1 }));
+    set(((struct dis){ 18, sqrt_3 }), ((struct dis){ .del = 1 }));
+    set(((struct dis){ 1000, 981 }), ((struct dis){ .del = 1 }));
+    set(((struct dis){ 17, 0.5 }), ((struct dis){ .del = 1 }));
+    set(((struct dis){ 22, sqrt_7 }), ((struct dis){ .del = 1 }));
+    set(((struct dis){ 0, 1 }), ((struct dis){ .del = 1 }));
 
-    // query(10, 16, 16, 20, 3);
+    cols = 1;
 
-    // query(24, 12, 24, 12, 1);
+    assert_col();
 
-    // query(8, 12, 8, 12, 1); /* 0 are in */
+    assert_eq(objs[6].count, 1);
+    assert_eq(objs[7].count, 1);
 
-    // query(15.1, 17, 15.1, 17, 0);
+    reset();
 
-    // query(3, 16, 3, 16, 2);
+    hshg_update(hshg);
 
+    assert_eq(objs[6].count, 1);
+    assert_eq(objs[7].count, 1);
 
-    // set(((struct dis){ 17, 17, sqrt_3 }), ((struct dis){ .del = 1 }));
-    // set(((struct dis){ 24, 12, 7 }), ((struct dis){ .del = 1 }));
-    // set(((struct dis){ 0, 0, 1 }), ((struct dis){ .del = 1 }));
-    // set(((struct dis){ -20, 20, 28 }), ((struct dis){ .del = 1 }));
-    // set(((struct dis){ 0, 16, 3 }), ((struct dis){ .del = 1 }));
 
-    // cols = 1;
+    assert(!hshg_optimize(hshg));
 
-    // assert_col();
+    assert_col();
 
-    // check_count(((int[]){ 1, 0 }));
+    assert_eq(objs[6].count, 1);
+    assert_eq(objs[7].count, 1);
 
-    // assert_eq(objs[3].count, 1);
+    reset();
 
-    // reset();
+    hshg_update(hshg);
 
-    // hshg_update(hshg);
+    assert_eq(objs[6].count, 1);
+    assert_eq(objs[7].count, 1);
 
-    // check_count(((int[]){ 1, 0 }));
 
-    // assert_eq(objs[3].count, 1);
+    query(-100, -20.1, 0);
 
+    query(16.01, 100, 0);
 
-    // assert(!hshg_optimize(hshg));
+    query(0, 1, 2);
 
-    // assert_col();
+    query(-1, 0, 2);
 
-    // check_count(((int[]){ 1, 0 }));
+    query(-2, -1, 1);
 
-    // assert_eq(objs[3].count, 1);
-
-    // reset();
-
-    // hshg_update(hshg);
-
-    // check_count(((int[]){ 1, 0 }));
-
-    // assert_eq(objs[3].count, 1);
-
-
-    // insert(15, 17, 1);
-
-    // set(((struct dis){ 13, 17, 2 }), ((struct dis){ .del = 1 }));
-
-    // assert_col();
-
-
-    // query(16.01, 0, 32, 32, 0);
-
-    // query(0, 0, 13.99, 32, 0);
+    query(1, 2, 1);
 
 
     hshg_free(hshg);
+}
 
+
+int
+main()
+{
+    for(int q = 0; q < 4; ++q)
+    {
+        for(int w = 0; w < 6; ++w)
+        {
+            printf("iter %dx%d\n", q, w);
+            fflush(NULL);
+
+            test(1 << q, 2 << w);
+        }
+    }
 
     return 0;
 }

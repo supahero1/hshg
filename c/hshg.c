@@ -809,8 +809,6 @@ while(0)
             }
 
             }
-
-            ++grid;
         }
     }
 
@@ -989,6 +987,8 @@ hshg_query_common(const _hshg* const hshg
     const _hshg_grid* grid = hshg->grids;
     const _hshg_grid* const grid_max = hshg->grids + hshg->grids_len;
 
+    uint8_t shift = 0;
+
     while(1)
     {
         if(grid == grid_max)
@@ -1002,7 +1002,16 @@ hshg_query_common(const _hshg* const hshg
         }
 
         ++grid;
+        ++shift;
     }
+
+            x.start >>= shift;
+    HSHG_2D(y.start >>= shift;)
+    HSHG_3D(z.start >>= shift;)
+
+            x.end >>= shift;
+    HSHG_2D(y.end >>= shift;)
+    HSHG_3D(z.end >>= shift;)
 
     while(1)
     {

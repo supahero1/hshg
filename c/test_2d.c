@@ -279,13 +279,18 @@ do                                                  \
 while(0)
 
 
-
 #define sqrt_3 1.732
 
 
-int
-main()
+void
+test(const hshg_cell_t side, const uint32_t size)
 {
+    obj_count = 0;
+    _obj_count = 0;
+    free_obj = NUM_OBJ;
+    cols = 0;
+
+
     hshg = hshg_create(8, 4);
 
     assert(hshg);
@@ -564,7 +569,22 @@ main()
 
 
     hshg_free(hshg);
+}
 
+
+int
+main()
+{
+    for(int q = 0; q < 4; ++q)
+    {
+        for(int w = 0; w < 6; ++w)
+        {
+            printf("iter %dx%d\n", q, w);
+            fflush(NULL);
+
+            test(1 << q, 2 << w);
+        }
+    }
 
     return 0;
 }

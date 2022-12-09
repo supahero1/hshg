@@ -13,12 +13,12 @@ prod_build: hshg.c hshg.h
 
 .PHONY: test
 test: hshg.c hshg.h test_1d.c test_2d.c
-	# @echo "1d Og"
-	# $(CC) test_1d.c -o test_1d $(D_FLAGS)
-	# ./test_1d
-	# @echo "1d O3"
-	# $(CC) test_1d.c -o test_1d $(P_FLAGS)
-	# ./test_1d
+	@echo "1d Og"
+	$(CC) test_1d.c -o test_1d $(D_FLAGS)
+	./test_1d
+	@echo "1d O3"
+	$(CC) test_1d.c -o test_1d $(P_FLAGS)
+	./test_1d
 	@echo "2d Og"
 	$(CC) test_2d.c -o test_2d $(D_FLAGS)
 	./test_2d
