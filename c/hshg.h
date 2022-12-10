@@ -43,6 +43,7 @@ static_assert(__STDC_VERSION__ >= 201112L);
 
 
 #ifndef HSHG_D
+#warning Since you have not explicitly chosen a dimension, 2D will be used.
 #define HSHG_D 2
 #endif
 
@@ -50,14 +51,35 @@ static_assert(__STDC_VERSION__ >= 201112L);
 #define HSHG_CAT(A, B) _HSHG_CAT(A, B)
 
 #if   HSHG_D == 1
-#define HSHG_2D(...)
-#define HSHG_3D(...)
+
+#define _1D(...) __VA_ARGS__
+#define _2D(...)
+#define _3D(...)
+
+#define EXCL_1D(...) __VA_ARGS__
+#define EXCL_2D(...)
+#define EXCL_3D(...)
+
 #elif HSHG_D == 2
-#define HSHG_2D(...) __VA_ARGS__
-#define HSHG_3D(...)
+
+#define _1D(...) __VA_ARGS__
+#define _2D(...) __VA_ARGS__
+#define _3D(...)
+
+#define EXCL_1D(...)
+#define EXCL_2D(...) __VA_ARGS__
+#define EXCL_3D(...)
+
 #elif HSHG_D == 3
-#define HSHG_2D(...) __VA_ARGS__
-#define HSHG_3D(...) __VA_ARGS__
+
+#define _1D(...) __VA_ARGS__
+#define _2D(...) __VA_ARGS__
+#define _3D(...) __VA_ARGS__
+
+#define EXCL_1D(...)
+#define EXCL_2D(...)
+#define EXCL_3D(...) __VA_ARGS__
+
 #endif
 
 #ifdef HSHG_UNIFORM
@@ -97,7 +119,7 @@ typedef __hshg_entity_t _hshg_entity_t;
 #define __hshg_cell_t HSHG_NAME(cell_t)
 
 #ifndef hshg_cell_t
-#define hshg_cell_t uint16_t
+#define hshg_cell_t uint32_t
 #endif
 
 typedef hshg_cell_t
@@ -162,8 +184,8 @@ typedef __hshg_pos_t _hshg_pos_t;
     _hshg_entity_t prev;    \
     _hshg_entity_t ref;     \
     _hshg_pos_t x;          \
-    HSHG_2D(_hshg_pos_t y;) \
-    HSHG_3D(_hshg_pos_t z;) \
+_2D(_hshg_pos_t y;)         \
+_3D(_hshg_pos_t z;)         \
     _hshg_pos_t r;          \
 }
 
@@ -180,10 +202,11 @@ typedef struct __hshg_entity __hshg_entity_t _hshg_entity;
     _hshg_entity_t* const cells;            \
                                             \
     const _hshg_cell_t cells_side;          \
+_3D(const _hshg_cell_sq_t cells_sq;)        \
     const _hshg_cell_t cells_mask;          \
                                             \
-    HSHG_2D(const uint8_t cells2d_log;)     \
-    HSHG_3D(const uint8_t cells3d_log;)     \
+_2D(const uint8_t cells2d_log;)             \
+_3D(const uint8_t cells3d_log;)             \
                                             \
     uint8_t shift;                          \
                                             \
@@ -233,7 +256,7 @@ typedef __hshg_const_update_t _hshg_const_update_t;
 #define __hshg_collide_t HSHG_NAME(collide_t)
 
 typedef void (*__hshg_collide_t)(const _hshg*,
-    const _hshg_entity*, const _hshg_entity*);
+    const _hshg_entity* restrict, const _hshg_entity* restrict);
 
 typedef __hshg_collide_t _hshg_collide_t;
 
@@ -336,8 +359,7 @@ _hshg_free(_hshg* const);
 #define _hshg_memory_usage HSHG_NAME(memory_usage)
 
 extern size_t
-_hshg_memory_usage(const _hshg_cell_t side,
-    const _hshg_entity_t entities_max);
+_hshg_memory_usage(const _hshg_cell_t side, const _hshg_entity_t entities_max);
 
 
 
@@ -351,13 +373,8 @@ _hshg_set_size(_hshg* const, const _hshg_entity_t size);
 #define _hshg_insert HSHG_NAME(insert)
 
 extern int
-_hshg_insert(_hshg* const
-            , const _hshg_pos_t x
-    HSHG_2D(, const _hshg_pos_t y)
-    HSHG_3D(, const _hshg_pos_t z)
-            , const _hshg_pos_t r
-            , const _hshg_entity_t ref
-);
+_hshg_insert(_hshg* const, const _hshg_pos_t x _2D(, const _hshg_pos_t y)
+    _3D(, const _hshg_pos_t z), const _hshg_pos_t r, const _hshg_entity_t ref);
 
 
 
@@ -429,12 +446,12 @@ _hshg_optimize(_hshg* const);
 
 extern void
 _hshg_query(_hshg* const
-            , const _hshg_pos_t min_x
-    HSHG_2D(, const _hshg_pos_t min_y)
-    HSHG_3D(, const _hshg_pos_t min_z)
-            , const _hshg_pos_t max_x
-    HSHG_2D(, const _hshg_pos_t max_y)
-    HSHG_3D(, const _hshg_pos_t max_z)
+    , const _hshg_pos_t min_x
+_2D(, const _hshg_pos_t min_y)
+_3D(, const _hshg_pos_t min_z)
+    , const _hshg_pos_t max_x
+_2D(, const _hshg_pos_t max_y)
+_3D(, const _hshg_pos_t max_z)
 );
 
 
@@ -443,12 +460,12 @@ _hshg_query(_hshg* const
 
 extern void
 _hshg_query_multithread(const _hshg* const
-            , const _hshg_pos_t min_x
-    HSHG_2D(, const _hshg_pos_t min_y)
-    HSHG_3D(, const _hshg_pos_t min_z)
-            , const _hshg_pos_t max_x
-    HSHG_2D(, const _hshg_pos_t max_y)
-    HSHG_3D(, const _hshg_pos_t max_z)
+    , const _hshg_pos_t min_x
+_2D(, const _hshg_pos_t min_y)
+_3D(, const _hshg_pos_t min_z)
+    , const _hshg_pos_t max_x
+_2D(, const _hshg_pos_t max_y)
+_3D(, const _hshg_pos_t max_z)
 );
 
 

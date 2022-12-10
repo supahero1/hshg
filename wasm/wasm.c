@@ -16,6 +16,8 @@ malloc(size_t len)
 {
     void* ret = malloc_base;
 
+    len = (len + 31) & ~31;
+
     malloc_base += len;
 
     return ret;
@@ -79,7 +81,6 @@ memcpy(void* dest, const void* src, size_t n)
 #define hshg_cell_sq_t uint32_t
 #define hshg_pos_t float
 
-#include "hshg.h"
 #include "hshg.c"
 
 

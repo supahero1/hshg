@@ -92,10 +92,7 @@ hshg_max_cells(_hshg_cell_t side)
     do
     {
         const _hshg_cell_sq_t new = cells_len +
-            (_hshg_cell_sq_t) side
-                    HSHG_2D(* side)
-                    HSHG_3D(* side)
-        ;
+            (_hshg_cell_sq_t) side _2D(* side) _3D(* side);
 
         assert(new > cells_len &&
             "_hshg_cell_sq_t must be set to a wider data type");
@@ -181,10 +178,11 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
             .cells = hshg->cells + idx,
 
             .cells_side = _side,
+        _3D(.cells_sq = (_hshg_cell_sq_t) _side * _side,)
             .cells_mask = _side - 1,
 
-            HSHG_2D(.cells2d_log = __builtin_ctz(_side) << 0,)
-            HSHG_3D(.cells3d_log = __builtin_ctz(_side) << 1,)
+        _2D(.cells2d_log = __builtin_ctz(_side) << 0,)
+        _3D(.cells3d_log = __builtin_ctz(_side) << 1,)
 
             .shift = 0,
 
@@ -194,11 +192,7 @@ _hshg_create(const _hshg_cell_t side, const uint32_t size)
         }
         ), sizeof(_hshg_grid));
 
-        idx +=
-        (_hshg_cell_sq_t) _side
-                HSHG_2D(* _side)
-                HSHG_3D(* _side)
-        ;
+        idx += (_hshg_cell_sq_t) _side _2D(* _side) _3D(* _side);
         _side >>= 1;
         _size <<= 1;
     }
@@ -330,16 +324,10 @@ grid_get_cell_1d(const _hshg_grid* const grid, const _hshg_pos_t x)
 
 hshg_attrib_const
 static _hshg_cell_sq_t
-grid_get_idx(const _hshg_grid* const grid
-            , const _hshg_cell_sq_t x
-    HSHG_2D(, const _hshg_cell_sq_t y)
-    HSHG_3D(, const _hshg_cell_sq_t z)
-)
+grid_get_idx(const _hshg_grid* const grid, const _hshg_cell_sq_t x
+    _2D(, const _hshg_cell_sq_t y) _3D(, const _hshg_cell_sq_t z))
 {
-    return x
-        HSHG_2D( | (y << grid->cells2d_log))
-        HSHG_3D( | (z << grid->cells3d_log))
-        ;
+    return x _2D( | (y << grid->cells2d_log)) _3D( | (z << grid->cells3d_log));
 }
 
 
@@ -351,19 +339,19 @@ idx_get_x(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 }
 
 
-HSHG_2D(
+_2D(
 
 hshg_attrib_const
 static _hshg_cell_t
 idx_get_y(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 {
-    return cell >> grid->cells2d_log;
+    return (cell >> grid->cells2d_log) _3D( & grid->cells_mask);
 }
 
 )
 
 
-HSHG_3D(
+_3D(
 
 hshg_attrib_const
 static _hshg_cell_t
@@ -377,21 +365,14 @@ idx_get_z(const _hshg_grid* const grid, const _hshg_cell_sq_t cell)
 
 hshg_attrib_const
 static _hshg_cell_sq_t
-grid_get_cell(const _hshg_grid* const grid
-            , const _hshg_pos_t x
-    HSHG_2D(, const _hshg_pos_t y)
-    HSHG_3D(, const _hshg_pos_t z)
-)
+grid_get_cell(const _hshg_grid* const grid, const _hshg_pos_t x
+    _2D(, const _hshg_pos_t y) _3D(, const _hshg_pos_t z))
 {
-            const _hshg_cell_t cell_x = grid_get_cell_1d(grid, x);
-    HSHG_2D(const _hshg_cell_t cell_y = grid_get_cell_1d(grid, y);)
-    HSHG_3D(const _hshg_cell_t cell_z = grid_get_cell_1d(grid, z);)
+    const _hshg_cell_t cell_x = grid_get_cell_1d(grid, x);
+_2D(const _hshg_cell_t cell_y = grid_get_cell_1d(grid, y);)
+_3D(const _hshg_cell_t cell_z = grid_get_cell_1d(grid, z);)
 
-    return grid_get_idx(grid,
-                  cell_x
-        HSHG_2D(, cell_y)
-        HSHG_3D(, cell_z)
-    );
+    return grid_get_idx(grid, cell_x _2D(, cell_y) _3D(, cell_z));
 }
 
 
@@ -418,11 +399,8 @@ hshg_reinsert(_hshg* const hshg, const _hshg_entity_t idx)
     _hshg_entity* const entity = hshg->entities + idx;
     _hshg_grid* const grid = hshg->grids + entity->grid;
 
-    entity->cell = grid_get_cell(grid
-                , entity->x
-        HSHG_2D(, entity->y)
-        HSHG_3D(, entity->z)
-    );
+    entity->cell = grid_get_cell(grid,
+        entity->x _2D(, entity->y) _3D(, entity->z));
 
     _hshg_entity_t* const cell = grid->cells + entity->cell;
 
@@ -446,13 +424,8 @@ hshg_reinsert(_hshg* const hshg, const _hshg_entity_t idx)
 
 
 int
-_hshg_insert(_hshg* const hshg
-            , const _hshg_pos_t x
-    HSHG_2D(, const _hshg_pos_t y)
-    HSHG_3D(, const _hshg_pos_t z)
-            , const _hshg_pos_t r
-            , const _hshg_entity_t ref
-)
+_hshg_insert(_hshg* const hshg, const _hshg_pos_t x _2D(, const _hshg_pos_t y)
+    _3D(, const _hshg_pos_t z), const _hshg_pos_t r, const _hshg_entity_t ref)
 {
     assert(!hshg->calling &&
         "hshg_insert() may not be called from any callback");
@@ -468,9 +441,9 @@ _hshg_insert(_hshg* const hshg
 
     ent->grid = hshg_get_grid(hshg, r);
     ent->ref = ref;
-            ent->x = x;
-    HSHG_2D(ent->y = y;)
-    HSHG_3D(ent->z = z;)
+    ent->x = x;
+_2D(ent->y = y;)
+_3D(ent->z = z;)
     ent->r = r;
 
     hshg_reinsert(hshg, idx);
@@ -500,7 +473,7 @@ hshg_remove_light(_hshg* const hshg)
 
     if(grid->entities_len == 0)
     {
-        hshg->new_cache &= ~(UINT32_C(1) << entity->grid);
+        hshg->new_cache ^= UINT32_C(1) << entity->grid;
     }
 }
 
@@ -528,13 +501,10 @@ _hshg_move(_hshg* const hshg)
     _hshg_entity* const entity = hshg->entities + idx;
     const _hshg_grid* const grid = hshg->grids + entity->grid;
 
-    if(entity->cell !=
-        grid_get_cell(grid
-                    , entity->x
-            HSHG_2D(, entity->y)
-            HSHG_3D(, entity->z)
-        )
-    )
+    const _hshg_cell_sq_t new_cell =
+        grid_get_cell(grid, entity->x _2D(, entity->y) _3D(, entity->z));
+
+    if(entity->cell != new_cell)
     {
         hshg_remove_light(hshg);
         hshg_reinsert(hshg, idx);
@@ -721,12 +691,74 @@ while(0)
 
         const _hshg_grid* grid = hshg->grids + entity->grid;
 
-                _hshg_cell_t cell_x = idx_get_x(grid, entity->cell);
-        HSHG_2D(_hshg_cell_t cell_y = idx_get_y(grid, entity->cell);)
-        HSHG_3D(_hshg_cell_t cell_z = idx_get_z(grid, entity->cell);)
+        _hshg_cell_t cell_x = idx_get_x(grid, entity->cell);
+    _2D(_hshg_cell_t cell_y = idx_get_y(grid, entity->cell);)
+    _3D(_hshg_cell_t cell_z = idx_get_z(grid, entity->cell);)
+_3D(
+        if(cell_z != 0)
+        {
 
-        HSHG_2D(
+            if(cell_y != 0)
+            {
+                const _hshg_entity_t* const cell = grid->cells +
+                    (entity->cell - grid->cells_sq - grid->cells_side);
 
+                if(cell_x != 0)
+                {
+                    loop_over(*(cell - 1));
+                }
+
+                loop_over(*cell);
+
+                if(cell_x != grid->cells_mask)
+                {
+                    loop_over(*(cell + 1));
+                }
+            }
+
+            {
+                const _hshg_entity_t* const cell =
+                    grid->cells + (entity->cell - grid->cells_sq);
+
+                if(cell_x != 0)
+                {
+                    loop_over(*(cell - 1));
+                }
+
+                loop_over(*cell);
+
+                if(cell_x != grid->cells_mask)
+                {
+                    loop_over(*(cell + 1));
+                }
+            }
+
+            if(cell_y != grid->cells_mask)
+            {
+                const _hshg_entity_t* const cell = grid->cells +
+                    (entity->cell - grid->cells_sq + grid->cells_side);
+
+                if(cell_x != 0)
+                {
+                    loop_over(*(cell - 1));
+                }
+
+                loop_over(*cell);
+
+                if(cell_x != grid->cells_mask)
+                {
+                    loop_over(*(cell + 1));
+                }
+            }
+        }
+)
+        loop_over(entity->next);
+
+        if(cell_x != grid->cells_mask)
+        {
+            loop_over(grid->cells[entity->cell + 1]);
+        }
+_2D(
         if(cell_y != grid->cells_mask)
         {
             const _hshg_entity_t* const cell =
@@ -744,64 +776,51 @@ while(0)
                 loop_over(*(cell + 1));
             }
         }
-
-        )
-
-        loop_over(entity->next);
-
-        if(cell_x != grid->cells_mask)
-        {
-            loop_over(grid->cells[entity->cell + 1]);
-        }
-
+)
         while(grid->shift)
         {
-                    cell_x >>= grid->shift;
-            HSHG_2D(cell_y >>= grid->shift;)
-            HSHG_3D(cell_z >>= grid->shift;)
+            cell_x >>= grid->shift;
+        _2D(cell_y >>= grid->shift;)
+        _3D(cell_z >>= grid->shift;)
 
 
             grid += grid->shift;
 
 
-                    const _hshg_cell_t min_cell_x =
-                        cell_x != 0 ? cell_x - 1 : 0;
+            const _hshg_cell_t min_cell_x =
+                cell_x != 0 ? cell_x - 1 : 0;
 
-            HSHG_2D(const _hshg_cell_t min_cell_y =
-                        cell_y != 0 ? cell_y - 1 : 0;)
+        _2D(const _hshg_cell_t min_cell_y =
+                cell_y != 0 ? cell_y - 1 : 0;)
 
-            HSHG_3D(const _hshg_cell_t min_cell_z =
-                        cell_z != 0 ? cell_z - 1 : 0;)
-
-
-                    const _hshg_cell_t max_cell_x =
-                        cell_x != grid->cells_mask ? cell_x + 1 : cell_x;
-
-            HSHG_2D(const _hshg_cell_t max_cell_y =
-                        cell_y != grid->cells_mask ? cell_y + 1 : cell_y;)
-
-            HSHG_3D(const _hshg_cell_t max_cell_z =
-                        cell_z != grid->cells_mask ? cell_z + 1 : cell_z;)
+        _3D(const _hshg_cell_t min_cell_z =
+                cell_z != 0 ? cell_z - 1 : 0;)
 
 
-                    _hshg_cell_t cur_x;
-            HSHG_2D(_hshg_cell_t cur_y;)
-            HSHG_3D(_hshg_cell_t cur_z;)
+            const _hshg_cell_t max_cell_x =
+                cell_x != grid->cells_mask ? cell_x + 1 : cell_x;
 
-            HSHG_3D(for(cur_z = min_cell_z; cur_z <= max_cell_z; ++cur_z))
+        _2D(const _hshg_cell_t max_cell_y =
+                cell_y != grid->cells_mask ? cell_y + 1 : cell_y;)
+
+        _3D(const _hshg_cell_t max_cell_z =
+                cell_z != grid->cells_mask ? cell_z + 1 : cell_z;)
+
+
+             _hshg_cell_t cur_x;
+        _2D(_hshg_cell_t cur_y;)
+        _3D(_hshg_cell_t cur_z;)
+
+        _3D(for(cur_z = min_cell_z; cur_z <= max_cell_z; ++cur_z))
             {
 
-            HSHG_2D(for(cur_y = min_cell_y; cur_y <= max_cell_y; ++cur_y))
+        _2D(for(cur_y = min_cell_y; cur_y <= max_cell_y; ++cur_y))
             {
 
             for(cur_x = min_cell_x; cur_x <= max_cell_x; ++cur_x)
             {
                 const _hshg_cell_t cell =
-                    grid_get_idx(grid
-                                , cur_x
-                        HSHG_2D(, cur_y)
-                        HSHG_3D(, cur_z)
-                    );
+                    grid_get_idx(grid, cur_x _2D(, cur_y) _3D(, cur_z));
 
                 loop_over(grid->cells[cell]);
             }
@@ -960,29 +979,29 @@ hshg_map_pos(const _hshg* const hshg, _hshg_cell_t* const ret,
 
 static void
 hshg_query_common(const _hshg* const hshg
-            , const _hshg_pos_t x1
-    HSHG_2D(, const _hshg_pos_t y1)
-    HSHG_3D(, const _hshg_pos_t z1)
-            , const _hshg_pos_t x2
-    HSHG_2D(, const _hshg_pos_t y2)
-    HSHG_3D(, const _hshg_pos_t z2)
+    , const _hshg_pos_t x1
+_2D(, const _hshg_pos_t y1)
+_3D(, const _hshg_pos_t z1)
+    , const _hshg_pos_t x2
+_2D(, const _hshg_pos_t y2)
+_3D(, const _hshg_pos_t z2)
 )
 {
     assert(hshg->query);
 
-            assert(x1 <= x2);
-    HSHG_2D(assert(y1 <= y2);)
-    HSHG_3D(assert(z1 <= z2);)
+    assert(x1 <= x2);
+_2D(assert(y1 <= y2);)
+_3D(assert(z1 <= z2);)
 
     struct
     {
         _hshg_cell_t start;
         _hshg_cell_t end;
-    } x HSHG_2D(, y) HSHG_3D(, z);
+    } x _2D(, y) _3D(, z);
 
-            hshg_map_pos(hshg, &x.start, x1, x2);
-    HSHG_2D(hshg_map_pos(hshg, &y.start, y1, y2);)
-    HSHG_3D(hshg_map_pos(hshg, &z.start, z1, z2);)
+    hshg_map_pos(hshg, &x.start, x1, x2);
+_2D(hshg_map_pos(hshg, &y.start, y1, y2);)
+_3D(hshg_map_pos(hshg, &z.start, z1, z2);)
 
     const _hshg_grid* grid = hshg->grids;
     const _hshg_grid* const grid_max = hshg->grids + hshg->grids_len;
@@ -1005,31 +1024,34 @@ hshg_query_common(const _hshg* const hshg
         ++shift;
     }
 
-            x.start >>= shift;
-    HSHG_2D(y.start >>= shift;)
-    HSHG_3D(z.start >>= shift;)
+    x.start >>= shift;
+_2D(y.start >>= shift;)
+_3D(z.start >>= shift;)
 
-            x.end >>= shift;
-    HSHG_2D(y.end >>= shift;)
-    HSHG_3D(z.end >>= shift;)
+    x.end >>= shift;
+_2D(y.end >>= shift;)
+_3D(z.end >>= shift;)
 
     while(1)
     {
-                const _hshg_cell_t s_x = x.start != 0 ? x.start - 1 : 0;
-        HSHG_2D(const _hshg_cell_t s_y = y.start != 0 ? y.start - 1 : 0;)
-        HSHG_3D(const _hshg_cell_t s_z = z.start != 0 ? z.start - 1 : 0;)
+        const _hshg_cell_t s_x = x.start != 0 ? x.start - 1 : 0;
+    _2D(const _hshg_cell_t s_y = y.start != 0 ? y.start - 1 : 0;)
+    _3D(const _hshg_cell_t s_z = z.start != 0 ? z.start - 1 : 0;)
 
-                const _hshg_cell_t e_x =
-                    x.end != grid->cells_mask ? x.end + 1 : x.end;
-        HSHG_2D(const _hshg_cell_t e_y =
-                    y.end != grid->cells_mask ? y.end + 1 : y.end;)
-        HSHG_3D(const _hshg_cell_t e_z =
-                    z.end != grid->cells_mask ? z.end + 1 : z.end;)
+        const _hshg_cell_t e_x =
+            x.end != grid->cells_mask ? x.end + 1 : x.end;
 
-        HSHG_3D(for(_hshg_cell_t z = s_z; z <= e_z; ++z))
+    _2D(const _hshg_cell_t e_y =
+            y.end != grid->cells_mask ? y.end + 1 : y.end;)
+
+    _3D(const _hshg_cell_t e_z =
+            z.end != grid->cells_mask ? z.end + 1 : z.end;)
+
+
+    _3D(for(_hshg_cell_t z = s_z; z <= e_z; ++z))
         {
 
-        HSHG_2D(for(_hshg_cell_t y = s_y; y <= e_y; ++y))
+    _2D(for(_hshg_cell_t y = s_y; y <= e_y; ++y))
         {
 
         for(_hshg_cell_t x = s_x; x <= e_x; ++x)
@@ -1037,24 +1059,18 @@ hshg_query_common(const _hshg* const hshg
             _hshg_entity_t j;
 
             const _hshg_cell_sq_t cell =
-                grid_get_idx(grid
-                            , x
-                    HSHG_2D(, y)
-                    HSHG_3D(, z)
-                );
+                grid_get_idx(grid, x _2D(, y) _3D(, z));
 
             for(j = grid->cells[cell]; j != 0;)
             {
                 const _hshg_entity* const entity =
                     hshg->entities + j;
 
-                if(
+                if(                                 (
                     entity->x + entity->r >= x1 &&
-                    entity->x - entity->r <= x2
-                    HSHG_2D(&&
+                    entity->x - entity->r <= x2) _2D(&&
                     entity->y + entity->r >= y1 &&
-                    entity->y - entity->r <= y2)
-                    HSHG_3D(&&
+                    entity->y - entity->r <= y2) _3D(&&
                     entity->z + entity->r >= z1 &&
                     entity->z - entity->r <= z2)
                 )
@@ -1072,13 +1088,13 @@ hshg_query_common(const _hshg* const hshg
 
         if(grid->shift)
         {
-                    x.start >>= grid->shift;
-            HSHG_2D(y.start >>= grid->shift;)
-            HSHG_3D(z.start >>= grid->shift;)
+            x.start >>= grid->shift;
+        _2D(y.start >>= grid->shift;)
+        _3D(z.start >>= grid->shift;)
 
-                    x.end >>= grid->shift;
-            HSHG_2D(y.end >>= grid->shift;)
-            HSHG_3D(z.end >>= grid->shift;)
+            x.end >>= grid->shift;
+        _2D(y.end >>= grid->shift;)
+        _3D(z.end >>= grid->shift;)
 
             grid += grid->shift;
         }
@@ -1092,12 +1108,12 @@ hshg_query_common(const _hshg* const hshg
 
 void
 _hshg_query(_hshg* const hshg
-            , const _hshg_pos_t x1
-    HSHG_2D(, const _hshg_pos_t y1)
-    HSHG_3D(, const _hshg_pos_t z1)
-            , const _hshg_pos_t x2
-    HSHG_2D(, const _hshg_pos_t y2)
-    HSHG_3D(, const _hshg_pos_t z2)
+    , const _hshg_pos_t x1
+_2D(, const _hshg_pos_t y1)
+_3D(, const _hshg_pos_t z1)
+    , const _hshg_pos_t x2
+_2D(, const _hshg_pos_t y2)
+_3D(, const _hshg_pos_t z2)
 )
 {
     assert((!hshg->updating || (hshg->updating && !hshg->removed)) &&
@@ -1115,14 +1131,7 @@ _hshg_query(_hshg* const hshg
 
     _hshg_update_cache(hshg);
 
-    hshg_query_common(hshg
-                , x1
-        HSHG_2D(, y1)
-        HSHG_3D(, z1)
-                , x2
-        HSHG_2D(, y2)
-        HSHG_3D(, z2)
-    );
+    hshg_query_common(hshg, x1 _2D(, y1) _3D(, z1), x2 _2D(, y2) _3D(, z2));
 
     hshg_set(querying, old_querying);
 }
@@ -1130,20 +1139,13 @@ _hshg_query(_hshg* const hshg
 
 void
 _hshg_query_multithread(const _hshg* const hshg
-            , const _hshg_pos_t x1
-    HSHG_2D(, const _hshg_pos_t y1)
-    HSHG_3D(, const _hshg_pos_t z1)
-            , const _hshg_pos_t x2
-    HSHG_2D(, const _hshg_pos_t y2)
-    HSHG_3D(, const _hshg_pos_t z2)
+    , const _hshg_pos_t x1
+_2D(, const _hshg_pos_t y1)
+_3D(, const _hshg_pos_t z1)
+    , const _hshg_pos_t x2
+_2D(, const _hshg_pos_t y2)
+_3D(, const _hshg_pos_t z2)
 )
 {
-    hshg_query_common(hshg
-                , x1
-        HSHG_2D(, y1)
-        HSHG_3D(, z1)
-                , x2
-        HSHG_2D(, y2)
-        HSHG_3D(, z2)
-    );
+    hshg_query_common(hshg, x1 _2D(, y1) _3D(, z1), x2 _2D(, y2) _3D(, z2));
 }

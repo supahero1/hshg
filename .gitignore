@@ -1,12 +1,10 @@
 js/node_modules
 js/package-lock.json
 
+c/bench
 c/test_1d
 c/test_2d
 c/test_3d
-c/bench_1d
-c/bench_2d
-c/bench_3d
 c/libhshg.so
 c/callgrind.out.*
 

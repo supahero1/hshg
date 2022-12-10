@@ -1,5 +1,8 @@
 P_FLAGS = -O3 -march=native -Wall
-D_FLAGS = -g3 -Og -Wall
+U_FLAGS = -g3 -Og -Wall
+D_FLAGS = $(U_FLAGS) -fsanitize=address,undefined
+
+DIMENSIONS ?= 2
 
 COMP = $(CC) hshg.c
 
@@ -25,15 +28,22 @@ test: hshg.c hshg.h test_1d.c test_2d.c
 	@echo "2d O3"
 	$(CC) test_2d.c -o test_2d $(P_FLAGS)
 	./test_2d
+	@echo "3d Og"
+	$(CC) test_3d.c -o test_3d $(D_FLAGS)
+	./test_3d
+	@echo "3d O3"
+	$(CC) test_3d.c -o test_3d $(P_FLAGS)
+	./test_3d
 
-.PHONY: bench_2d
-bench_2d: hshg.c hshg.h bench_2d.c
-	$(CC) bench_2d.c -o bench_2d $(P_FLAGS) -lm && ./bench_2d
+.PHONY: bench
+bench: hshg.c hshg.h bench.c
+	$(CC) bench.c -o bench $(P_FLAGS) -DHSHG_D=$(DIMENSIONS) -lm
+	./bench
 
 .PHONY: callgrind
 callgrind: hshg.c hshg.h bench.c
-	$(CC) bench.c -o bench $(D_FLAGS) -DBENCH_LITE -lm && \
-	set -m; \
+	$(CC) bench.c -o bench $(U_FLAGS) -DHSHG_D=$(DIMENSIONS) -DBENCH_LITE -lm
+	set -m
 	./run.sh
 	kcachegrind
 

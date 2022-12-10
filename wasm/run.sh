@@ -7,6 +7,6 @@ clang --target=wasm32 -nostdlib -Wl,--no-entry -Wl,--lto-O3 \
 
 wasm-opt -O4 -uim -o hshg_opt.wasm hshg.wasm
 
-# wasm2wat hshg_opt.wasm > hshg.txt
+wasm2wat hshg_opt.wasm > hshg.txt
 
 node test.js
