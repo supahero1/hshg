@@ -301,6 +301,8 @@ hshg_return_entity(_hshg* const hshg)
     invalidate_entity(ent);
 
     ent->next = hshg->free_entity;
+    ent->prev = 0;
+    hshg->entities[ent->next].prev = idx;
     hshg->free_entity = idx;
 }
 
@@ -1147,5 +1149,9 @@ _2D(, const _hshg_pos_t y2)
 _3D(, const _hshg_pos_t z2)
 )
 {
+    assert(hshg->old_cache == hshg->new_cache &&
+        "You modified an entity's radius. "
+        "Call hshg_update_cache() before any hshg_query_multithread().");
+
     hshg_query_common(hshg, x1 _2D(, y1) _3D(, z1), x2 _2D(, y2) _3D(, z2));
 }

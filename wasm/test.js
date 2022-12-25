@@ -1,40 +1,31 @@
 "use strict";
 
-const { readFileSync } = require("node:fs");
+const HSHG = require("./hshg");
 
-const binary = readFileSync("./hshg_opt.wasm");
+(async function() {
+    const engine = await new HSHG(16, 4, 100);
 
-const imports = {
-    on_update: function(id) {
-        console.log("update", id);
-    },
-    on_collision: function(a_id, b_id) {
-        console.log("collision", a_id, b_id);
-    },
-    on_query: function(id) {
-        console.log("query", id);
-    }
-};
+    console.log(engine);
 
-imports.memory = new WebAssembly.Memory({ initial: 10 });
+    engine.insert(10, 20, 5, 0);
 
-WebAssembly.instantiate(binary, { env: imports }).then(run);
+    engine.insert(20, 0, 100, 1);
 
-function run(module) {
-    const exports = module.instance.exports;
-    console.log(exports);
+    engine.update = function(entity) {
+        console.log("updating", entity);
+    };
 
-    exports.init(256, 32, 32767);
+    engine.update();
 
-    console.log("done");
+    engine.collide = function(ent_a, ent_b) {
+        console.log("colliding", ent_a, ent_b);
+    };
 
-    exports.insert(0, 0, 10, 0);
+    engine.collide();
 
-    exports.insert(2, 2, 2, 1);
+    engine.query = function(entity) {
+        console.log("querying", entity);
+    };
 
-    exports.update();
-
-    exports.collide();
-
-    exports.query(-3, -3, -3, -3);
-}
+    engine.query(20, 0, 20, 0);
+})();

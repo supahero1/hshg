@@ -76,11 +76,6 @@ memcpy(void* dest, const void* src, size_t n)
 #define HSHG_NDEBUG
 #define HSHG_UNIFORM
 
-#define hshg_entity_t uint32_t
-#define hshg_cell_t uint32_t
-#define hshg_cell_sq_t uint32_t
-#define hshg_pos_t float
-
 #include "hshg.c"
 
 
@@ -135,7 +130,14 @@ _query(unused const struct hshg* _, const struct hshg_entity* a)
 }
 
 
-export void
+export size_t
+mem(_hshg_cell_t side, _hshg_entity_t max_entities)
+{
+    return hshg_memory_usage(side, max_entities);
+}
+
+
+export uintptr_t
 init(hshg_cell_t side, uint32_t size, hshg_entity_t max_entities)
 {
     hshg = hshg_create(side, size);
@@ -145,6 +147,8 @@ init(hshg_cell_t side, uint32_t size, hshg_entity_t max_entities)
     hshg->update = _update;
     hshg->collide = _collide;
     hshg->query = _query;
+
+    return (uintptr_t)(hshg->entities + 1);
 }
 
 

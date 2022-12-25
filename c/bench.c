@@ -12,7 +12,7 @@
 
 #ifndef BENCH_LITE
 
-#define AGENTS_NUM EXCL_1D(1000000) EXCL_2D(500000) EXCL_3D(300000)
+#define AGENTS_NUM EXCL_1D(500000) EXCL_2D(400000) EXCL_3D(270000)
 #define CELLS_SIDE EXCL_1D(2048 * 2048) EXCL_2D(2048) EXCL_3D(128)
 
 #else
@@ -43,15 +43,17 @@ _3D(float vz;)
 };
 
 struct ball* balls = NULL;
-uint32_t ball_idx = 0;
+struct ball* ball = 0;
 struct ball* balls_new = NULL;
+hshg_entity_t ball_idx = 0;
 
 
 void
 balls_update(struct hshg* hshg, struct hshg_entity* a)
 {
-    balls_new[ball_idx] = balls[a->ref];
+    *ball = balls[a->ref];
     a->ref = ball_idx;
+    ++ball;
     ++ball_idx;
 }
 
@@ -59,10 +61,12 @@ balls_update(struct hshg* hshg, struct hshg_entity* a)
 void
 balls_optimize(struct hshg* hshg)
 {
-    ball_idx = 0;
     balls_new = calloc(AGENTS_NUM, sizeof(*balls_new));
 
     assert(balls_new);
+
+    ball_idx = 0;
+    ball = balls_new;
 
     hshg_update_t old = hshg->update;
 
@@ -95,8 +99,6 @@ update(struct hshg* hshg, struct hshg_entity* a)
       --ball->vx;
     }
 
-    ball->vx *= 0.997;
-
 _2D(
     a->y += ball->vy;
 
@@ -110,8 +112,6 @@ _2D(
       ball->vy *= 0.9;
       --ball->vy;
     }
-
-    ball->vy *= 0.997;
 )
 
 _3D(
@@ -127,8 +127,6 @@ _3D(
       ball->vz *= 0.9;
       --ball->vz;
     }
-
-    ball->vz *= 0.997;
 )
 
     hshg_move(hshg);
@@ -139,15 +137,18 @@ uint64_t maybe_collisions = 0;
 uint64_t collisions = 0;
 
 
-
-float invSqrt(float x) {
-  union {
+float
+inv_sqrt(float x)
+{
+  union
+  {
     float f;
     uint32_t i;
   } y;
 
   y.f = x;
   y.i = 0x5f3759df - (y.i >> 1);
+
   return y.f * (1.5f - 0.5f * x * y.f * y.f);
 }
 
@@ -167,35 +168,45 @@ _3D(float dz = a->z - b->z;)
     if(dist <= dr * dr)
     {
         ++collisions;
-
-        // const float angle = atan2f(0, dx);
-        // const float c = cosf(angle);
-
-        const float mag = invSqrt(dist);
+        const float mag = inv_sqrt(dist);
 
         struct ball* const ball_a = balls + a->ref;
         struct ball* const ball_b = balls + b->ref;
 
-        if(mag != 0)
-        {
-            dx *= mag;
-        _2D(dy *= mag;)
-        _3D(dz *= mag;)
+        dx *= mag;
+    _2D(dy *= mag;)
+    _3D(dz *= mag;)
 
-            ball_a->vx *= 0.75;
-            ball_a->vx += dx;
-        _2D(ball_a->vy += dy;)
-        _3D(ball_a->vz += dz;)
+        ball_a->vx *= 0.75;
+        ball_a->vx += dx;
 
-            ball_b->vx *= 0.75;
-            ball_b->vx -= dx;
-        _2D(ball_b->vy -= dy;)
-        _3D(ball_b->vz -= dz;)
-        }
+    _2D(ball_a->vy *= 0.75;)
+    _2D(ball_a->vy += dy;)
 
-        // ball_a->vx += c;
-        // ball_b->vx -= c;
+    _3D(ball_a->vz *= 0.75;)
+    _3D(ball_a->vz += dz;)
+
+        ball_b->vx *= 0.75;
+        ball_b->vx -= dx;
+
+    _2D(ball_b->vy *= 0.75;)
+    _2D(ball_b->vy -= dy;)
+
+    _3D(ball_b->vz *= 0.75;)
+    _3D(ball_b->vz -= dz;)
     }
+}
+
+
+uint32_t queried_refs[AGENTS_NUM];
+uint32_t queried_len = 0;
+
+
+void
+query(const struct hshg* hshg, const struct hshg_entity* const a)
+{
+    queried_refs[queried_len++] = a->ref;
+    queried_len = (queried_len + 1) % AGENTS_NUM;
 }
 
 
@@ -282,9 +293,13 @@ main()
     }
 
     struct hshg* hshg = hshg_create(CELLS_SIDE, CELL_SIZE);
+
     assert(hshg);
+
     hshg->update = update;
     hshg->collide = collide;
+    hshg->query = query;
+
     assert(!hshg_set_size(hshg, AGENTS_NUM + 1));
 
     const uint64_t ins_time = get_time();
@@ -300,117 +315,60 @@ main()
 
     const uint64_t ins_end_time = get_time();
 
-    free(init_data);
-
     printf("took %" PRIu64 "ms to insert %d entities\n%" PRIu8 " grids\n\n",
     (ins_end_time - ins_time) / UINT64_C(1000000), AGENTS_NUM, hshg->grids_len);
 
     double upd[LATENCY_NUM];
     double opt[LATENCY_NUM];
     double col[LATENCY_NUM];
+    double qry[LATENCY_NUM];
     int i = 0;
 
     puts("--- | average |  sd  | +- 0.1ms | +- 0.4ms | +- 0.7ms | +- 1.0ms | col stats |");
 
     while(1)
     {
-        const uint64_t upd_time = get_time();
-
-        hshg_update(hshg);
-
         const uint64_t opt_time = get_time();
 
-        if(i % 32 == 0)
-        {
-            assert(!hshg_optimize(hshg));
+        assert(!hshg_optimize(hshg));
 
-            balls_optimize(hshg);
-        }
+        balls_optimize(hshg);
 
         const uint64_t col_time = get_time();
 
         hshg_collide(hshg);
 
+        const uint64_t qry_time = get_time();
+
+        const float* ptr = init_data + queried_len * mul;
+
+        for(uint8_t i = 0; i < 255 >> (1 << (HSHG_D - 1)); ++i)
+        {
+            hshg_query(hshg
+                , *(ptr + 0) - (1920 / 2)
+            _2D(, *(ptr + 2) - (1080 / 2))
+            _3D(, *(ptr + 3) - (1080 / 2))
+                , *(ptr + 0) + (1920 / 2)
+            _2D(, *(ptr + 2) + (1080 / 2))
+            _3D(, *(ptr + 3) + (1080 / 2))
+            );
+
+            ++ptr;
+        }
+
+        const uint64_t upd_time = get_time();
+
+        hshg_update(hshg);
+
         const uint64_t end_time = get_time();
 
-        upd[i] = (double)(opt_time - upd_time) / 1000000.0;
         opt[i] = (double)(col_time - opt_time) / 1000000.0;
-        col[i] = (double)(end_time - col_time) / 1000000.0;
+        col[i] = (double)(qry_time - col_time) / 1000000.0;
+        qry[i] = (double)(upd_time - qry_time) / 1000000.0;
+        upd[i] = (double)(end_time - upd_time) / 1000000.0;
 
         if(i + 1 == LATENCY_NUM)
         {
-            double upd_avg = 0;
-
-            for(i = 0; i < LATENCY_NUM; ++i)
-            {
-                upd_avg += upd[i];
-            }
-
-            upd_avg /= LATENCY_NUM;
-
-
-            double upd_sd = 0;
-
-            for(i = 0; i < LATENCY_NUM; ++i)
-            {
-                upd_sd += (upd[i] - upd_avg) * (upd[i] - upd_avg);
-            }
-
-            upd_sd = sqrtf(upd_sd / LATENCY_NUM);
-
-
-            double upd_01 = 0;
-
-            for(i = 0; i < LATENCY_NUM; ++i)
-            {
-                if(upd[i] >= upd_avg - 0.1 && upd[i] <= upd_avg + 0.1)
-                {
-                    ++upd_01;
-                }
-            }
-
-            upd_01 = upd_01 / LATENCY_NUM * 100;
-
-
-            double upd_04 = 0;
-
-            for(i = 0; i < LATENCY_NUM; ++i)
-            {
-                if(upd[i] >= upd_avg - 0.4 && upd[i] <= upd_avg + 0.4)
-                {
-                    ++upd_04;
-                }
-            }
-
-            upd_04 = upd_04 / LATENCY_NUM * 100;
-
-
-            double upd_07 = 0;
-
-            for(i = 0; i < LATENCY_NUM; ++i)
-            {
-                if(upd[i] >= upd_avg - 0.7 && upd[i] <= upd_avg + 0.7)
-                {
-                    ++upd_07;
-                }
-            }
-
-            upd_07 = upd_07 / LATENCY_NUM * 100;
-
-
-            double upd_10 = 0;
-
-            for(i = 0; i < LATENCY_NUM; ++i)
-            {
-                if(upd[i] >= upd_avg - 1.0 && upd[i] <= upd_avg + 1.0)
-                {
-                    ++upd_10;
-                }
-            }
-
-            upd_10 = upd_10 / LATENCY_NUM * 100;
-
-
             double opt_avg = 0;
 
             for(i = 0; i < LATENCY_NUM; ++i)
@@ -493,27 +451,111 @@ main()
             col_10 = col_10 / LATENCY_NUM * 100;
 
 
+            double qry_avg = 0;
+
+            for(i = 0; i < LATENCY_NUM; ++i)
+            {
+                qry_avg += qry[i];
+            }
+
+            qry_avg /= LATENCY_NUM;
+
+
+            double upd_avg = 0;
+
+            for(i = 0; i < LATENCY_NUM; ++i)
+            {
+                upd_avg += upd[i];
+            }
+
+            upd_avg /= LATENCY_NUM;
+
+
+            double upd_sd = 0;
+
+            for(i = 0; i < LATENCY_NUM; ++i)
+            {
+                upd_sd += (upd[i] - upd_avg) * (upd[i] - upd_avg);
+            }
+
+            upd_sd = sqrtf(upd_sd / LATENCY_NUM);
+
+
+            double upd_01 = 0;
+
+            for(i = 0; i < LATENCY_NUM; ++i)
+            {
+                if(upd[i] >= upd_avg - 0.1 && upd[i] <= upd_avg + 0.1)
+                {
+                    ++upd_01;
+                }
+            }
+
+            upd_01 = upd_01 / LATENCY_NUM * 100;
+
+
+            double upd_04 = 0;
+
+            for(i = 0; i < LATENCY_NUM; ++i)
+            {
+                if(upd[i] >= upd_avg - 0.4 && upd[i] <= upd_avg + 0.4)
+                {
+                    ++upd_04;
+                }
+            }
+
+            upd_04 = upd_04 / LATENCY_NUM * 100;
+
+
+            double upd_07 = 0;
+
+            for(i = 0; i < LATENCY_NUM; ++i)
+            {
+                if(upd[i] >= upd_avg - 0.7 && upd[i] <= upd_avg + 0.7)
+                {
+                    ++upd_07;
+                }
+            }
+
+            upd_07 = upd_07 / LATENCY_NUM * 100;
+
+
+            double upd_10 = 0;
+
+            for(i = 0; i < LATENCY_NUM; ++i)
+            {
+                if(upd[i] >= upd_avg - 1.0 && upd[i] <= upd_avg + 1.0)
+                {
+                    ++upd_10;
+                }
+            }
+
+            upd_10 = upd_10 / LATENCY_NUM * 100;
+
+
             printf(
 "------------------------------------------------------------------------------\n"
-"upd | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | attempted |\n"
-"opt | %5.2lfms | ---- | -------- | -------- | -------- | -------- | %9." PRIu64 " |\n"
-"col | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | succeeded |\n"
+"opt | %5.2lfms | ---- | -------- | -------- | -------- | -------- | attempted |\n"
+"col | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | %9." PRIu64 " |\n"
+"qry | %5.2lfms | ---- | -------- | -------- | -------- | -------- |           |\n"
+"upd | %5.2lfms | %4.2lf |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  |  %5.1lf%%  | succeeded |\n"
 "all | %5.2lfms | ---- | -------- | -------- | -------- | -------- | %9." PRIu64 " |\n",
-                upd_avg,
-                upd_sd,
-                upd_01,
-                upd_04,
-                upd_07,
-                upd_10,
                 opt_avg,
-                maybe_collisions,
                 col_avg,
                 col_sd,
                 col_01,
                 col_04,
                 col_07,
                 col_10,
-                upd_avg + opt_avg + col_avg,
+                maybe_collisions,
+                qry_avg,
+                upd_avg,
+                upd_sd,
+                upd_01,
+                upd_04,
+                upd_07,
+                upd_10,
+                upd_avg + opt_avg + col_avg + qry_avg,
                 collisions
             );
 
@@ -531,6 +573,8 @@ main()
     }
 
     hshg_free(hshg);
+
+    free(init_data);
 
     return EXIT_SUCCESS;
 }
