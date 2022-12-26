@@ -1,6 +1,6 @@
 {
   "name": "hshg",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "1D, 2D, and 3D Hierarchical Spatial Hash Grid",
   "keywords": ["hshg", "collision"],
   "homepage": "https://github.com/supahero1/hshg/wasm#readme",
