@@ -12,7 +12,7 @@
 
 #ifndef BENCH_LITE
 
-#define AGENTS_NUM EXCL_1D(500000) EXCL_2D(400000) EXCL_3D(270000)
+#define AGENTS_NUM EXCL_1D(500000) EXCL_2D(500000) EXCL_3D(300000)
 #define CELLS_SIDE EXCL_1D(2048 * 2048) EXCL_2D(2048) EXCL_3D(128)
 
 #else
@@ -30,7 +30,7 @@
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 100
+#define LATENCY_NUM 1000
 
 #define SINGLE_LAYER 1
 

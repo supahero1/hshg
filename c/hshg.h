@@ -43,8 +43,7 @@ static_assert(__STDC_VERSION__ >= 201112L);
 
 
 #ifndef HSHG_D
-#warning Since you have not explicitly chosen a dimension, 2D will be used.
-#define HSHG_D 2
+#error You must choose a dimension that you want to use.
 #endif
 
 #define _HSHG_CAT(A, B) A ## B
@@ -119,7 +118,7 @@ typedef __hshg_entity_t _hshg_entity_t;
 #define __hshg_cell_t HSHG_NAME(cell_t)
 
 #ifndef hshg_cell_t
-#define hshg_cell_t uint32_t
+#define hshg_cell_t uint16_t
 #endif
 
 typedef hshg_cell_t
@@ -136,7 +135,7 @@ typedef __hshg_cell_t _hshg_cell_t;
  * A type that will be able to hold the total number of cells in a HSHG. To get
  * an upper bound of that number, calculate:
  *
- * ( side ^ dimensions ) * [ 2, 1.333, 1.143 ][ dimensions ]
+ * ( side ** dimension ) * [ 2, 1.333, 1.143 ][ dimension ]
  *
  * For 2D, you would do: side * side * 1.333.
  *

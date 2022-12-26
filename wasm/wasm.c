@@ -1,9 +1,5 @@
 #include <stddef.h>
-
-
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned uint32_t;
+#include <stdint.h>
 
 
 extern uint8_t __heap_base;
@@ -72,9 +68,13 @@ memcpy(void* dest, const void* src, size_t n)
 }
 
 
-#define HSHG_D 2
 #define HSHG_NDEBUG
 #define HSHG_UNIFORM
+
+#define hshg_entity_t uint32_t
+#define hshg_cell_t uint32_t
+#define hshg_cell_sq_t uint32_t
+#define hshg_pos_t float
 
 #include "hshg.c"
 
@@ -153,9 +153,10 @@ init(hshg_cell_t side, uint32_t size, hshg_entity_t max_entities)
 
 
 export void
-insert(hshg_pos_t x, hshg_pos_t y, hshg_pos_t r, hshg_entity_t ref)
+insert(hshg_pos_t x _2D(, hshg_pos_t y)
+    _3D(, hshg_pos_t z), hshg_pos_t r, hshg_entity_t ref)
 {
-    hshg_insert(hshg, x, y, r, ref);
+    hshg_insert(hshg, x _2D(, y) _3D(, z), r, ref);
 }
 
 
@@ -174,7 +175,8 @@ collide(void)
 
 
 export void
-query(hshg_pos_t x1, hshg_pos_t y1, hshg_pos_t x2, hshg_pos_t y2)
+query(hshg_pos_t x1 _2D(, hshg_pos_t y1) _3D(, hshg_pos_t z1),
+    hshg_pos_t x2 _2D(, hshg_pos_t y2) _3D(, hshg_pos_t z2))
 {
-    hshg_query(hshg, x1, y1, x2, y2);
+    hshg_query(hshg, x1 _2D(, y1) _3D(, z1), x2 _2D(, y2) _3D(, z2));
 }

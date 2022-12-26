@@ -1,5 +1,26 @@
 {
-  "dependencies": {
+  "name": "hshg",
+  "version": "1.0.0",
+  "description": "1D, 2D, and 3D Hierarchical Spatial Hash Grid",
+  "keywords": ["hshg", "collision"],
+  "homepage": "https://github.com/supahero1/hshg/wasm#readme",
+  "bugs": {
+    "url": "https://github.com/supahero1/hshg/issues"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Franciszek Balcerak"
+  },
+  "funding": "https://ko-fi.com/shadam",
+  "main": "hshg.js",
+  "repository": "github:supahero1/hshg",
+  "scripts": {
+    "test": "make test"
+  },
+  "devDependencies": {
     "skia-canvas": "^1.0.1"
+  },
+  "engines": {
+    "node": ">=12.0.0"
   }
 }

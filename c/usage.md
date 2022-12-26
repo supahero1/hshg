@@ -1,3 +1,6 @@
+## This is a bit outdated (WIP)
+Namely, anything mentioning `cell_div_log` (now it's hardcoded `1`), and now all grids are precreated, but not all of them actively used, amongst other things.
+
 # Using the HSHG
 
 ## Behind the scenes
@@ -220,7 +223,7 @@ void query(const struct hshg* hshg, const struct hshg_entity* entity) {
 
 void update_with_query(struct hshg* hshg, struct hshg_entity* entity) {
   struct my_entity* my_ent = entities + entity->ref;
-  
+
   query_len = 0;
   hshg_query(hshg, minx, miny, maxx, maxy);
 

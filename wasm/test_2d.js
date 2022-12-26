@@ -113,9 +113,9 @@ const requestAnimationFrame = function(cb) {
     setTimeout(cb, 1000 / 60);
 }
 
-const HSHG = require("./hshg");
+const { HSHG_2D } = require("./hshg");
 
-(new HSHG(SIDE, SIZE, ENTITIES_NUM)).then(function(engine) {
+(new HSHG_2D(SIDE, SIZE, ENTITIES_NUM)).then(function(engine) {
     engine.update = function(entity) {
         entity.update();
     };
@@ -134,7 +134,7 @@ const HSHG = require("./hshg");
 
     const { Window } = require("skia-canvas");
 
-    const window = new Window(600, 600);
+    const window = new Window(1600, 900);
 
     window.title = "ezeza";
 

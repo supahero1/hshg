@@ -6,16 +6,8 @@ DIMENSIONS ?= 2
 
 COMP = $(CC) hshg.c
 
-.PHONY: build
-build: hshg.c hshg.h
-	$(COMP) -shared -o libhshg.so $(P_FLAGS)
-
-.PHONY: prod_build
-prod_build: hshg.c hshg.h
-	$(COMP) -shared -o libhshg.so $(P_FLAGS) -DHSHG_NDEBUG
-
 .PHONY: test
-test: hshg.c hshg.h test_1d.c test_2d.c
+test:
 	@echo "1d Og"
 	$(CC) test_1d.c -o test_1d $(D_FLAGS)
 	./test_1d
@@ -36,22 +28,13 @@ test: hshg.c hshg.h test_1d.c test_2d.c
 	./test_3d
 
 .PHONY: bench
-bench: hshg.c hshg.h bench.c
+bench:
 	$(CC) bench.c -o bench $(P_FLAGS) -DHSHG_D=$(DIMENSIONS) -lm
 	./bench
 
 .PHONY: callgrind
-callgrind: hshg.c hshg.h bench.c
+callgrind:
 	$(CC) bench.c -o bench $(U_FLAGS) -DHSHG_D=$(DIMENSIONS) -DBENCH_LITE -lm
 	set -m
 	./run.sh
 	kcachegrind
-
-.PHONY: install
-install: libhshg.so
-	install libhshg.so /usr/local/lib/ -m 775
-	install hshg.h /usr/local/include/ -m 644
-
-.PHONY: uninstall
-uninstall:
-	$(RM) /usr/local/lib/libhshg.so /usr/local/include/hshg.h libhshg.so
