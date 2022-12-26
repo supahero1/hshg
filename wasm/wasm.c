@@ -148,7 +148,7 @@ init(hshg_cell_t side, uint32_t size, hshg_entity_t max_entities)
     hshg->collide = _collide;
     hshg->query = _query;
 
-    return (uintptr_t)(hshg->entities + 1);
+    return (uintptr_t) hshg->entities;
 }
 
 

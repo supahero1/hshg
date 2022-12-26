@@ -1,16 +1,19 @@
 "use strict";
 
-const binary = require("node:fs").readFileSync("./hshg_opt.wasm");
+const binary = require("node:fs").readFileSync("./hshg.wasm");
 
 class HSHG {
     #exports;
     #f32_memory;
-    #u32_memory;
-    #head;
+    #head = 0;
 
-    mem;
+    #entities;
+    #entities_len = 1;
+    #free_entity = 0;
 
-    #entity_flag;
+    mem = 0;
+
+    #entity_id = 0;
 
     #update_cb = function(id){};
     #collision_cb = function(a_id, b_id){};
@@ -48,7 +51,6 @@ class HSHG {
             const module =
                 await WebAssembly.instantiate(binary, { env: imports });
 
-
             this.#exports = module.instance.exports;
 
             ++max_entities;
@@ -58,66 +60,110 @@ class HSHG {
             imports.memory.grow(Math.ceil(this.mem / 65536) - 1);
 
             this.#f32_memory = new Float32Array(mem.buffer);
-            this.#u32_memory = new Uint32Array(mem.buffer);
 
             this.#head = this.#exports.init(side, size, max_entities) >> 2;
+
+            this.#entities = new Array(max_entities);
 
             resolve(this);
         }.bind(this));
     }
 
     /**
-     * Get entity with given ID.
+     * Return the internal C flags for the underlying code to know what to do.
      *
-     * @param {number} id ID of the entity.
+     * @param {number} id Internal ID of the entity.
+     *
+     * @param {object} entity The entity to update.
+     *
+     * @returns {number} Internal flags.
      */
-    #get_entity(id) {
-        const idx = this.#head + (id << 3) + 4;
+    #handle_entity_update(id, entity) {
+        const idx = this.#head + (id << 3) + 5;
 
-        return {
-            ref: this.#u32_memory[idx + 0],
-            x: this.#f32_memory[idx + 1],
-            y: this.#f32_memory[idx + 2],
-            r: this.#f32_memory[idx + 3]
-        };
+        const x = this.#f32_memory[idx + 0];
+        const y = this.#f32_memory[idx + 1];
+        const r = this.#f32_memory[idx + 2];
+
+        let flags = 0;
+
+        if(entity.x != x) {
+            this.#f32_memory[idx + 0] = entity.x;
+
+            flags |= 1;
+        }
+
+        if(entity.y != y) {
+            this.#f32_memory[idx + 1] = entity.y;
+
+            flags |= 1;
+        }
+
+        if(entity.r != r) {
+            this.#f32_memory[idx + 2] = entity.r;
+
+            flags |= 2;
+        }
+
+        return flags;
     }
 
     /**
-     * Set entity with given ID to the new contents.
-     *
-     * @param {number} id ID of the entity.
-     *
-     * @param {object} entity The entity in question.
+     * Get internal index to the next free entity spot.
      */
-    #set_entity(id, entity) {
-        const idx = this.#head + (id << 3) + 4;
+    #get_idx() {
+        if(this.#free_entity != 0) {
+            const ret = this.#free_entity;
 
-        this.#u32_memory[idx + 0] = entity.ref;
-        this.#f32_memory[idx + 1] = entity.x;
-        this.#f32_memory[idx + 2] = entity.y;
-        this.#f32_memory[idx + 3] = entity.r;
+            this.#free_entity = this.#entities[ret];
+
+            return ret;
+        }
+
+        return this.#entities_len++;
+    }
+
+    /**
+     * Return the internal entity index for later reuse.
+     *
+     * @param {number} idx The internal index of the entity.
+     */
+    #ret_idx(idx) {
+        this.#entities[idx] = this.#free_entity;
+
+        this.#free_entity = idx;
     }
 
     /**
      * Inserts the given entity.
      *
-     * @param {number} x The X position.
+     * The entity must have the following fields:
      *
-     * @param {number} y The Y position.
+     * - `x` - the X coordinate
      *
-     * @param {number} r The radius.
+     * - `y` - the Y coordinate
      *
-     * @param {number} ref The reference, used as simply data to something.
+     * - `r` - the radius
+     *
+     * It may also have other, application-defined fields.
+     *
+     * @param {object} entity The entity.
      */
-    insert(x, y, r, ref) {
-        this.#exports.insert(x, y, r, ref);
+    insert(entity) {
+        const idx = this.#get_idx();
+
+        this.#entities[idx] = entity;
+
+        this.#exports.insert(entity.x, entity.y, entity.r, idx);
     }
 
     /**
      * If invoked in an update call, removes the currently updated entity.
      */
     remove() {
-        this.#entity_flag = 1;
+        this.#ret_idx(this.#entity_id);
+
+        this.#entity_id = 0;
     }
 
     /**
@@ -150,6 +196,8 @@ class HSHG {
 
     /**
      * Get the callback needed to actually perform an update.
+     *
+     * @returns {function():void}
      */
     get update() {
         return this.#do_update;
@@ -164,35 +212,24 @@ class HSHG {
 
     /**
      * Internal update handler.
+     *
+     * @param {number} id The updated entity's internal ID.
+     *
+     * @returns {number} Internal flags.
      */
     #on_update(id) {
-        const entity = this.#get_entity(id);
+        const entity = this.#entities[id];
 
-        this.#entity_flag = 0;
+        this.#entity_id = id;
 
         this.#update_cb(entity);
 
-        if(this.#entity_flag === 1) {
+        if(this.#entity_id === 0) {
+            /* Remove */
             return 4;
         }
 
-        let flags = 0;
-
-        const old_entity = this.#get_entity(id);
-
-        if(entity.x != old_entity.x || entity.y != old_entity.y) {
-            flags |= 1;
-        }
-
-        if(entity.r != old_entity.r) {
-            flags |= 2;
-        }
-
-        if(flags != 0) {
-            this.#set_entity(id, entity);
-        }
-
-        return flags;
+        return this.#handle_entity_update(id, entity);
     }
 
     /**
@@ -208,6 +245,8 @@ class HSHG {
 
     /**
      * Get the callback needed to actually perform a collision.
+     *
+     * @returns {function():void}
      */
     get collide() {
         return this.#do_collision;
@@ -224,8 +263,8 @@ class HSHG {
      * Internal collision handler.
      */
     #on_collision(a_id, b_id) {
-        const entity_a = this.#get_entity(a_id);
-        const entity_b = this.#get_entity(b_id);
+        const entity_a = this.#entities[a_id];
+        const entity_b = this.#entities[b_id];
 
         this.#collision_cb(entity_a, entity_b);
     }
@@ -243,6 +282,8 @@ class HSHG {
 
     /**
      * Get the callback needed to actually perform a query.
+     *
+     * @returns {function(number, number, number, number):void}
      */
     get query() {
         return this.#do_query;
@@ -264,7 +305,7 @@ class HSHG {
      * Internal query handler.
      */
     #on_query(id) {
-        const entity = this.#get_entity(id);
+        const entity = this.#entities[id];
 
         this.#query_cb(entity);
     }

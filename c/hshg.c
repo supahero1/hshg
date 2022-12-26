@@ -301,8 +301,6 @@ hshg_return_entity(_hshg* const hshg)
     invalidate_entity(ent);
 
     ent->next = hshg->free_entity;
-    ent->prev = 0;
-    hshg->entities[ent->next].prev = idx;
     hshg->free_entity = idx;
 }
 
