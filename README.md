@@ -25,7 +25,7 @@ You can test the code via `make test`. You can also benchmark it via `make bench
 
 There's no libraries. Include the code in your project and build it there.
 
-If you do decide to use it, read [the usage](c/usage.md).
+If you do decide to use it, read [the usage](c/README.md).
 
 ## JavaScript/WASM
 
@@ -37,7 +37,7 @@ Run `npm i; ./run.sh` for a graphical preview and some timings in the console. Y
 
 WASM slows down about twice compared to native code, and the JavaScript bindings subsequently decrease performance by about 2.5. If you want high performance, you should use C directly for backend, or [emscripten](https://emscripten.org/) for browser (for "only" ~2 times slower code).
 
-Read [the usage](c/usage.md) to learn how to use the JavaScript bindings.
+Read [the usage](wasm/README.md) to learn how to use the JavaScript bindings.
 
 # C Benchmarks
 

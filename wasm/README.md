@@ -1,5 +1,3 @@
-The `hshg.js` file provides complete bindings to use the generated 2D WASM file, so the first thing you should do is to get it:
-
 ```js
 const { HSHG_2D } = require("./hshg");
 ```
