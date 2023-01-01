@@ -1,9 +1,9 @@
 {
   "name": "hshg",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "1D, 2D, and 3D Hierarchical Spatial Hash Grid",
   "keywords": ["hshg", "collision"],
-  "homepage": "https://github.com/supahero1/hshg/wasm#readme",
+  "homepage": "https://github.com/supahero1/hshg/tree/master/wasm#readme",
   "bugs": {
     "url": "https://github.com/supahero1/hshg/issues"
   },
@@ -13,6 +13,7 @@
   },
   "funding": "https://ko-fi.com/shadam",
   "main": "hshg.js",
+  "types": "hshg.d.ts",
   "repository": "github:supahero1/hshg",
   "scripts": {
     "test": "make test"

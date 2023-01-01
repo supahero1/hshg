@@ -87,3 +87,5 @@ Note that this provides **broad** collision detection - the items might not be c
 `engine.query(min_x, min_y, max_x, max_y)` searches the specified area and calls `engine.query` on every found entity. It will only be called once per entity. Any entities intersecting the queried area will be included, not just those which are entirely inside.
 
 You can access `engine.mem` to see roughly how many bytes of memory it has allocated for itself.
+
+If you want to learn more, check out [the source repository](https://github.com/supahero1/hshg).

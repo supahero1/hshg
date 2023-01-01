@@ -11,6 +11,9 @@ class HSHG_1D {
     #entities_len = 1;
     #free_entity = 0;
 
+    /**
+     * The rough amount of memory allocated for the HSHG.
+     */
     mem = 0;
 
     #entity_id = 0;
@@ -36,6 +39,8 @@ class HSHG_1D {
      *
      * @param {number} max_entities The maximum number of entities you ever
      * expect the HSHG to handle. You will not be able to go above that number.
+     *
+     * @returns a Promise that then returns the HSHG.
      */
     constructor(side, size, max_entities) {
         return new Promise(async function(resolve) {
