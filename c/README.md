@@ -34,30 +34,30 @@ Entities may only be altered in `hshg_update()` (`hshg.update`). In all other ca
 - This implementation of a HSHG maps the infinite plane to a finite number of cells - entities don't need to always stay on top of the HSHG's area (from `(0, 0)` to whatever `(cells * cell_size, cells * cell_size)` is), they can be somewhere entirely else. However, refrain from doing something like this:
 
   ```
-                      0                1                2
-                    2 ----------------------------------- 2
-                      |                |                |
-                      |                |                |
-                      |                |                |
-                      |                |                |
-                      |   HSHGs area   |   HSHGs area   |
-    -1                |                |                |
-  1 ---------------------------------------------------- 1
-    |                |                |                |
-    |   Your arena   |   Your arena   |                |
-    |                |                |                |
-    |                |                |                |
-    |                |   HSHGs area   |   HSHGs area   |
-    |                |                |                |
-  0 ----------------0,0--------------------------------- 0
-    |                |                |                2
-    |   Your arena   |   Your arena   |
-    |                |                |
-    |                |                |
-    |                |                |
-    |                |                |
-  -1 ----------------------------------- -1
-    -1                0                1
+                       0                1                2
+                     2 ----------------------------------- 2
+                       |                |                |
+                       |                |                |
+                       |                |                |
+                       |                |                |
+                       |   HSHGs area   |   HSHGs area   |
+     -1                |                |                |
+    1 ---------------------------------------------------- 1
+      |                |                |                |
+      |   Your arena   |   Your arena   |                |
+      |                |                |                |
+      |                |                |                |
+      |                |   HSHGs area   |   HSHGs area   |
+      |                |                |                |
+    0 ----------------0,0--------------------------------- 0
+      |                |                |                2
+      |   Your arena   |   Your arena   |
+      |                |                |
+      |                |                |
+      |                |                |
+      |                |                |
+   -1 ----------------------------------- -1
+     -1                0                1
   ```
 
   This will result in performance slightly worse than if the HSHG was 4 times smaller in size (one of the cells instead of all 4), because ALL of your arena cells will be mapped to the same exact HSHG cell. If you don't know how this implementation of HSHGs folds the XOY plane to grids, you should just stick to **one** of the four XOY quadrants (as in, maybe make all positions positive instead of having any negatives).
