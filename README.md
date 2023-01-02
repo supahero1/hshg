@@ -2,10 +2,12 @@
 
 Based on [this paper](https://www10.cs.fau.de/publications/theses/2009/Schornbaum_SA_2009.pdf), this repository is my own implementation of a HSHG for 1D, 2D, and 3D, easily expandable to higher dimensions. The paper was initially used as a skeleton to then improve upon. As of now, the implementation highly differs.
 
+Most of the documentation only refers to the 2D version. Other dimensions don't differ highly. To learn how to use other dimensions, read the usage file in the respective language section below.
+
 This HSHG implementation features:
 
 ### Ridiculously low memory requirements
-For a max of 65,535 entities on a 128x128 grid with 128 cell size, one cell will use 2 bytes and one entity will take 24 bytes (includes `x`, `y`, and `r`), so in the worst case scenario, you will only need 1.6MB.
+For a max of 65,535 entities on a 128x128 grid, one cell will use 2 bytes and one entity will take 24 bytes (includes `x`, `y`, and `r`), so in the worst case scenario, you will only need 1.6MB.
 
 ### No hidden costs[^1]
 When you insert an object, a few allocations might occur, but no further memory will be requested or shrank after the insertion.
