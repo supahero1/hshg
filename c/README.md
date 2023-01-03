@@ -14,6 +14,8 @@ All grids are precreated upon initializing a HSHG. To avoid a huge performance i
 
 ### Entities
 
+All entities have hypercube hitboxes. It doesn't matter if your shape is convex or not, you just need to provide a position and a radius that will create a hypercube containing your whole shape inside, where position is the center of the hypercube, and radius is half of an edge's length. If your shape is exceptionally "long" in one direction, which would result in a pretty huge hypercube, you can divide it into smaller hypercubes, however you will also need to check for duplicate collisions then, where one foreign object may collide with multiple smaller hypercubes that you inserted.
+
 A new entity is inserted to a grid that fits the entity entirely in one cell, and so that the previous grid's cell size would be too small for the entity (to not insert entities to oversized cells). Due to this, only one copy of the entity is needed over its whole lifetime, and it only occupies one cell in one grid, unlike other structures like a non-hierarchical grid structure, or a QuadTree, in which case you need to be varied of duplicates in leaf nodes and so.
 
 You are free to insert entities that are orders of magnitude bigger than the largest cell in a HSHG, because at the top-most grid, every cell is checked with every other cell, which is a by-product of how the collision works. Additionally, the top-most grid contains 4 cells, not 1.
