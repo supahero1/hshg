@@ -30,7 +30,7 @@
 
 /* If your hardware is really struggling,
 decrease this for more frequent output. */
-#define LATENCY_NUM 1000
+#define LATENCY_NUM 200
 
 #define SINGLE_LAYER 1
 
